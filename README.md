@@ -32,4 +32,4 @@ I don't think that would make sense. The number of cases in any country starts s
 
 * Are you trying to make China look better / my country look worse / scare us?
 
-No. I'm not passing judgment on anyone, or trying to tell anyone to do anythinh, I'm just looking at data.
+No. I'm not passing judgment on anyone, or trying to tell anyone to do anything, I'm just looking at data.
