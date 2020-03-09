@@ -4,7 +4,7 @@
 
 I used the data from Johns Hopkins University Center for Systems Science and Engineering, who compiled it from data from the World Health Organization, the Chinese CDC, the US CDC and other organizations.
 
-Of course, there could already be a lot more cases going under the radar, in peolpe who are not being tested.
+Of course, there could already be a lot more cases going under the radar, in people who are not being tested.
 
 * Why is the Y-axis logarithmic? I want it linear!
 
