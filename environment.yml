@@ -1,0 +1,13 @@
+name: covid19
+channels:
+    - conda-forge
+dependencies:
+    - python=3.7.1
+    - numpy
+    - matplotlib
+    - pandas
+    - pip
+    - jupyter
+    - requests
+    - pip:
+        - seaborn
