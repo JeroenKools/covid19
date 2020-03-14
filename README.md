@@ -2,7 +2,7 @@
 
 * How reliable is your data?
 
-I used the data from Johns Hopkins University Center for Systems Science and Engineering, who compiled it from data from the World Health Organization, the Chinese CDC, the US CDC and other organizations.
+I used [this](https://github.com/CSSEGISandData/COVID-19) data from Johns Hopkins University Center for Systems Science and Engineering, who compiled it from data from the World Health Organization, the Chinese CDC, the US CDC and other organizations.
 
 Of course, there could already be a lot more cases going under the radar, in people who are not being tested.
 
@@ -14,13 +14,9 @@ In addition, this allows for better comparison between different series (i.e. co
 
 That said, it's easy enough to change this plot to be linear. I included an example in the notebook.
 
-* Where is my second favorite country, the one where I live?
+* Where is my favorite country?
 
 I didn't want to graph a hundred countries in one plot, that would be too messy. Feel free to make your own copy of my code (by forking from the [Github Repo](https://github.com/JeroenKools/covid19), or [opening it in Google Colab](https://colab.research.google.com/github/JeroenKools/covid19/blob/master/COVID-19.ipynb), and change the list of countries to include your own.
-
-* Where is my favorite country, Cruise Ship?
-
-Data from the Diamond Princess cruise ship is listed under "Others" in the Johns Hopkins data.
 
 * What criteria did you use to select the countries shown?
 
