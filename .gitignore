@@ -1,2 +1,6 @@
 
 .ipynb_checkpoints/COVID-19-checkpoint.ipynb
+*.xml
+*.iml
+*.pyc
+*.pyc
