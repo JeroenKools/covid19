@@ -81,18 +81,18 @@ def death_chance_per_day(cfr, sigma, length, do_plot):
 
     # Approximate survival and death odds
     x = np.arange(length)
-    death_chance_per_day = gaussian(length, sigma)
-    death_chance_per_day = death_chance_per_day/sum(death_chance_per_day) * cfr
-    survive_chance_per_day = 1 - death_chance_per_day
+    death_chance = gaussian(length, sigma)
+    death_chance = death_chance/sum(death_chance) * cfr
+    survive_chance_per_day = 1 - death_chance
 
     # Approximation is slightly off, compensate
     survive_chance_per_day = normalize_to_target_product(survive_chance_per_day, 1-cfr)
-    death_chance_per_day = 1 - survive_chance_per_day
+    death_chance = 1 - survive_chance_per_day
     alive = np.product(survive_chance_per_day)
 
     if do_plot:
         display(Markdown(f"Input CFR: {cfr:.2%}. Model result: {alive:.2%} of being alive after {len(x)} days"))
-        plt.plot(x,100*death_chance_per_day)
+        plt.plot(x,100*death_chance)
         plt.title("Modelled daily fatality rate, if infected with Covid-19", fontsize=16)
         plt.xlabel("Day")
         plt.ylabel("Chance")
@@ -104,13 +104,13 @@ def death_chance_per_day(cfr, sigma, length, do_plot):
         plt.title("Modelled survival probability, n days after contracting Covid-19", fontsize=16)
         plt.xlabel("Day")
         plt.ylabel("Chance")
-        plt.ylim(0, 100)
+        plt.ylim(0, 102)
         plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter())
         plt.grid()
         plt.show()
 
     else:
-        return death_chance_per_day
+        return death_chance
 
     
 def logistic_func(x, L, k, x0):

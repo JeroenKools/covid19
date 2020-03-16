@@ -54,7 +54,8 @@ class Covid19Processing:
                                                   "Republic of Moldova": "Moldova",
                                                   "Russian Federaration": "Russia",
                                                   "Korea, South": "South Korea",
-                                                  "Taiwan*": "Taiwan"
+                                                  "Taiwan*": "Taiwan",
+                                                  "occupied Palestinian territory": "Palestine"
                                                  })        
 
             # Store processed results for metric
@@ -69,7 +70,6 @@ class Covid19Processing:
         with pd.option_context("display.max_rows", 10, "display.max_columns", 10):
             display(self.dataframes["confirmed_by_country"])    
 
-
     def list_countries(self):
         confirmed_by_country = self.dataframes["confirmed_by_country"]
         n_countries = len(confirmed_by_country)
@@ -78,7 +78,6 @@ class Covid19Processing:
             if len(k) > 19:
                 k = k[:18].strip() + "."
             print(f"{k:20}", end=" " if (i+1) % 5 else "\n")      # Every 5 items, end with a newline
-
 
     def plot(self, x_metric, y_metric, countries_to_plot, colormap=cm, use_log_scale=True, 
              min_cases=40, n_days_average=5):
@@ -171,7 +170,6 @@ class Covid19Processing:
         for spine in plt.gca().spines.values():
             spine.set_visible(False)
         plt.show()
-        
 
     def plot_pie(self, y_metric):
         short_y = y_metric.split()[0]
@@ -187,7 +185,6 @@ class Covid19Processing:
         plt.title(f"{y_metric.capitalize()} as of {data_for_pie.name.date()}", fontsize=16)
         plt.show()
 
-
     def curve_fit(self, country="All except China", days=100, do_plot=True):
         x = np.arange(days)
         country_data = self.dataframes["confirmed_by_country"].loc[country, :]
@@ -197,7 +194,7 @@ class Covid19Processing:
         [L, k, x0], pcov =  scipy.optimize.curve_fit(logistic_func, np.arange(len(country_data)), 
                                                      country_data, maxfev=10000, 
                                                      p0=[1e6, 0.5, max(1, len(country_data))],
-                                                     bounds=([0, 0.0, 1], [1e9, 1.0, 200]),
+                                                     bounds=([1, 0.0, 1], [1e9, 1.0, 300]),
                                                      method="trf"
                                                     )
 
@@ -235,7 +232,6 @@ class Covid19Processing:
             for spine in plt.gca().spines.values():
                 spine.set_visible(False)
             plt.show()
-
 
     def simulate_country_history(self, country, population, history_length=28, show_result=False):    
         confirmed = self.dataframes["confirmed_by_country"].loc[country]
@@ -282,7 +278,6 @@ class Covid19Processing:
             display(Markdown("<br>**First 10 days in the US, showing a 7-day case duration history:**"))
             display(simulation.iloc[:10, :])
         return simulation
-
 
     def simulate_country(
          self,
@@ -352,7 +347,7 @@ class Covid19Processing:
 
         return country_history, today
 
-    def plot_simulation(self, country, days, growth_rate_trend):
+    def plot_simulation(self, country, days, growth_rate_trend, do_log=False):
         simulation, today = self.simulate_country(country=country, population=330e6, days=days, 
                                                   growth_rate_trend=growth_rate_trend)
 
@@ -361,7 +356,7 @@ class Covid19Processing:
             plt.plot(simulation.loc[:today, short_metric], c="C00", label="Actual")
             plt.plot(simulation.loc[today:, short_metric], c="C01", label="Simulated")
             plt.title(f"Simulation of {metric} of COVID-19 in {country} for the next {days} days", fontsize=16)
-            set_y_axis_format(False)
+            set_y_axis_format(log=do_log)
             plt.grid()
             plt.legend(loc="upper left")
             plt.show()
