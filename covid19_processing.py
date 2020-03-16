@@ -79,30 +79,39 @@ class Covid19Processing:
                 k = k[:18].strip() + "."
             print(f"{k:20}", end=" " if (i+1) % 5 else "\n")      # Every 5 items, end with a newline
 
+    def get_country_data(self, metric):
+        return self.dataframes[metric+"_by_country"]
+
     def plot(self, x_metric, y_metric, countries_to_plot, colormap=cm, use_log_scale=True, 
              min_cases=40, n_days_average=5):
 
+        # layout/style stuff
         markers= ["o", "^", "v", "<", ">", "s", "X", "D", "*", "$Y$", "$Z$"]
         short_metric_to_long = {
             "confirmed": "Confirmed cases",
             "deaths":    "Deaths",
             "active":    "Active cases",
-            "growth_factor": f"{n_days_average}-day-avg growth factor"
+            "growth_factor": f"{n_days_average}-day-avg growth factor",
+            "deaths/confirmed": "Case Fatality Rate"
         }
-        fills = ["none", "full"] # alternate between filled and empty markers
+        fills = ["none", "full"]  # alternate between filled and empty markers
         length = None
         m = len(markers)
         cm = plt.cm.get_cmap(colormap)
         cNorm = matplotlib.colors.Normalize(vmin=0, vmax=len(countries_to_plot))
         scalarMap = matplotlib.cm.ScalarMappable(norm=cNorm, cmap=cm)
+
+        ratio_parts = y_metric.split("/")
         if y_metric in self.dataframes:
-            by_country = self.dataframes[y_metric+"_by_country"]
+            by_country = self.get_country_data(y_metric)
         elif y_metric == "growth_factor":
-            by_country = self.dataframes["confirmed_by_country"]
+            by_country = self.get_country_data("confirmed")
         elif y_metric == "active":
-            by_country = self.dataframes["confirmed_by_country"] - \
-                         self.dataframes["deaths_by_country"] - \
-                         self.dataframes["recovered_by_country"] 
+            by_country = self.get_country_data("confirmed") -\
+                         self.get_country_data("deaths") -\
+                         self.get_country_data("recovered")
+        elif len(ratio_parts) == 2 and ratio_parts[0] in self.dataframes and ratio_parts[1] in self.dataframes:
+            by_country = self.get_country_data(ratio_parts[0]) / self.get_country_data(ratio_parts[1])
         else:
             print(f"{y_metric}' is an invalid y_metric!")
 
@@ -135,7 +144,10 @@ class Covid19Processing:
                     plt.plot(day_nr, country_data, marker=markers[i%m], label=country, 
                              markersize=7, color=scalarMap.to_rgba(i), alpha=1, fillstyle=fill)
 
-        long_y_metric = short_metric_to_long[y_metric]
+        if y_metric in short_metric_to_long:
+            long_y_metric = short_metric_to_long[y_metric]
+        else:
+            long_y_metric = y_metric
         plt.ylabel(long_y_metric, fontsize=14)
         if x_metric == "calendar_date":
             plt.xlabel("Date", fontsize=14)
@@ -160,6 +172,13 @@ class Covid19Processing:
         if y_metric == "growth_factor":
             plt.gca().get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: f"{x:,.2f}"))
             plt.ylabel("Growth Factor", fontsize=14)
+        elif len(ratio_parts) > 1:
+            plt.gca().get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: f"{x:.1%}"))
+            if use_log_scale:
+                plt.yscale("log")
+                plt.ylim((0.001, 0.12))
+            else:
+                plt.ylim((0, 0.12))
         else:
             set_y_axis_format(use_log_scale)
         plt.grid()
