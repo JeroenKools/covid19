@@ -230,8 +230,8 @@ class Covid19Processing:
 
         [L, k, x0], pcov = scipy.optimize.curve_fit(logistic_func, np.arange(len(country_data)),
                                                     country_data, maxfev=10000,
-                                                    p0=[1e6, 0.5, max(1, len(country_data))],
-                                                    bounds=([1, 0.0, 1], [1e9, 1.0, 300]),
+                                                    p0=[1e5, 0.5, np.clip(len(country_data), 1, 200)],
+                                                    bounds=([1, 0.1, 1], [1e8, 0.999, 400]),
                                                     method="trf"
                                                     )
 
@@ -247,8 +247,8 @@ class Covid19Processing:
 
         if do_plot:
             plt.plot(country_data, label="Confirmed cases in " + country, markersize=3, zorder=1)
-            plt.plot(model_date_list,
-                     logistic, label=f"{L:.0f} / (1 + e^(-{k:.3f} * (x - {x0:.3f})))", zorder=1)
+            plt.plot(model_date_list, np.round(logistic), 
+                     label=f"{L:.0f} / (1 + e^(-{k:.3f} * (x - {x0:.1f})))", zorder=1)
 
             plt.grid()
             plt.legend(loc="upper left")
@@ -268,6 +268,8 @@ class Covid19Processing:
             plt.gca().tick_params(which="both", color=light_grey)
             for spine in plt.gca().spines.values():
                 spine.set_visible(False)
+            bottom, top = plt.ylim()
+            plt.ylim((bottom, max(bottom+1, top)))
             plt.show()
 
     def simulate_country_history(self, country, population, history_length=28, show_result=False):

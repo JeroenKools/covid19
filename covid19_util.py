@@ -111,7 +111,14 @@ def death_chance_per_day(cfr, sigma, length, do_plot):
 
 
 def logistic_func(x, L, k, x0):
-    return L / (1 + np.exp(-k * (x - x0)))
+    import warnings
+    warnings.filterwarnings("error")
+    try:
+        out = L / (1 + np.exp(-k * (x - x0)))
+        return out
+    except RuntimeWarning:
+        # Ignore these warnings, they will only happen when the curve fit parameters are out of bounds
+        return x
 
 
 def get_pie_label(pct):
