@@ -343,7 +343,8 @@ class Covid19Processing:
             deaths = country_history.deaths
             active = country_history.active
             recovered = country_history.recovered
-            uninfected = population - confirmed.iloc[-1] - deaths.iloc[-1] - active.iloc[-1] - recovered.iloc[-1]
+            uninfected = int(np.maximum(0, population -
+                                        confirmed.iloc[-1] - deaths.iloc[-1] - active.iloc[-1] - recovered.iloc[-1]))
             case_history = country_history.iloc[-1, -history_length:].copy()
 
             last_day = confirmed.index[-1]
@@ -368,9 +369,6 @@ class Covid19Processing:
 
             # Recoveries
             new_recovered = case_history[-1]
-
-            # Uninfected
-            uninfected = int(np.maximum(0, uninfected - new_cases - new_deaths - new_recovered))
 
             # Shift case history
             case_history[1:] = case_history[:-1]
@@ -397,4 +395,11 @@ class Covid19Processing:
             set_y_axis_format(log=do_log)
             plt.grid()
             plt.legend(loc="upper left")
+            power = int(math.ceil(math.log(simulation.loc[:,short_metric].max())/math.log(10)))
+            ceil = 1.03 * 10**power
+            plt.yticks([float(10**x) for x in range(0, power+1)])
+            plt.ylim(1, ceil)
+            plt.minorticks_off()
             plt.show()
+
+        return simulation

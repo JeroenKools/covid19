@@ -63,7 +63,7 @@ def kmb_number_format(n, digits=4):
 # Convenience function for labelling the y-axis
 def set_y_axis_format(log=True):
     if log:
-        plt.yscale("log")
+        plt.yscale("log", basey=10)
     plt.gca().get_yaxis().set_major_formatter(
         matplotlib.ticker.FuncFormatter(lambda x, p: kmb_number_format(x)))
 
