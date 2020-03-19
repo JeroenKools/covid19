@@ -1,13 +1,20 @@
 from covid19_util import *
 
+from matplotlib import dates as mdates
+import pandas as pd
+import requests
+import scipy.optimize
+from io import StringIO
+import datetime
+
 
 class Covid19Processing:
     def __init__(self):
         self.dataframes = {}
         for metric in data_urls.keys():
-            url = base_url + data_urls[metric]                                  # Combine URL parts
-            r = requests.get(url)                                               # Retrieve from URL
-            self.dataframes[metric] = pd.read_csv(StringIO(r.text), sep=",")    # Convert into Pandas dataframe
+            url = base_url + data_urls[metric]  # Combine URL parts
+            r = requests.get(url)  # Retrieve from URL
+            self.dataframes[metric] = pd.read_csv(StringIO(r.text), sep=",")  # Convert into Pandas dataframe
 
         # Display the first lines
         display(Markdown("### Raw confirmed cases data, per region/state"))
@@ -17,11 +24,11 @@ class Covid19Processing:
     def process(self):
         for metric in data_urls.keys():
             by_country = self.dataframes[metric].groupby("Country/Region").sum()  # Group by country
-            dates = by_country.columns[2:]                                        # Drop Lat/Long columns
-            by_country.loc["All except China", dates] =\
-                by_country.sum().loc[dates]-by_country.loc["China", dates]        # Add "Outside China" row
-            by_country = by_country.loc[:, dates].astype(int)                     # Convert to columns to matplotlib dates
-            dates = pd.to_datetime(dates) 
+            dates = by_country.columns[2:]  # Drop Lat/Long columns
+            by_country.loc["All except China", dates] = \
+                by_country.sum().loc[dates] - by_country.loc["China", dates]  # Add "Outside China" row
+            by_country = by_country.loc[:, dates].astype(int)  # Convert to columns to matplotlib dates
+            dates = pd.to_datetime(dates)
             by_country.columns = dates
 
             if metric == "confirmed":
@@ -34,20 +41,20 @@ class Covid19Processing:
 
                 # Insert data points
                 for d, n in early_china_data.items():
-                    by_country.loc["China", pd.to_datetime(d)] = n               
+                    by_country.loc["China", pd.to_datetime(d)] = n
 
-                # Retain chronological column order  
-                by_country = by_country.reindex(list(sorted(by_country.columns)), axis=1) 
+                    # Retain chronological column order
+                by_country = by_country.reindex(list(sorted(by_country.columns)), axis=1)
                 by_country = by_country.fillna(0)
 
                 # Correct an odd blip in the Japanese data. 
                 # From 2/5 to 2/7, the Johns Hopkins data for Japan goes 22, 45, 25. 
                 # I assume that the 45 is incorrect. Replace with 23.5, halfway between the values for 2/5 and 2/7
-                by_country.loc["Japan", pd.to_datetime("2/06/20")] = 23.5 
+                by_country.loc["Japan", pd.to_datetime("2/06/20")] = 23.5
 
-            # Change some weird formal names to more commonly used ones
-            by_country = by_country.rename(index={"Republic of Korea": "South Korea", 
-                                                  "Holy See": "Vatican City",         
+                # Change some weird formal names to more commonly used ones
+            by_country = by_country.rename(index={"Republic of Korea": "South Korea",
+                                                  "Holy See": "Vatican City",
                                                   "Iran (Islamic Republic of)": "Iran",
                                                   "Viet Nam": "Vietnam",
                                                   "Taipei and environs": "Taiwan",
@@ -56,10 +63,10 @@ class Covid19Processing:
                                                   "Korea, South": "South Korea",
                                                   "Taiwan*": "Taiwan",
                                                   "occupied Palestinian territory": "Palestine"
-                                                 })        
+                                                  })
 
             # Store processed results for metric
-            self.dataframes[metric+"_by_country"] = by_country
+            self.dataframes[metric + "_by_country"] = by_country
 
         # Compute active cases
         self.dataframes["active_by_country"] = self.dataframes["confirmed_by_country"] - \
@@ -68,7 +75,7 @@ class Covid19Processing:
 
         display(Markdown("### Table of confirmed cases by country"))
         with pd.option_context("display.max_rows", 10, "display.max_columns", 10):
-            display(self.dataframes["confirmed_by_country"])    
+            display(self.dataframes["confirmed_by_country"])
 
     def list_countries(self):
         confirmed_by_country = self.dataframes["confirmed_by_country"]
@@ -77,20 +84,20 @@ class Covid19Processing:
         for i, k in enumerate(confirmed_by_country.index):
             if len(k) > 19:
                 k = k[:18].strip() + "."
-            print(f"{k:20}", end=" " if (i+1) % 5 else "\n")      # Every 5 items, end with a newline
+            print(f"{k:20}", end=" " if (i + 1) % 5 else "\n")  # Every 5 items, end with a newline
 
     def get_country_data(self, metric):
-        return self.dataframes[metric+"_by_country"]
+        return self.dataframes[metric + "_by_country"]
 
-    def plot(self, x_metric, y_metric, countries_to_plot, colormap=cm, use_log_scale=True, 
-             min_cases=40, n_days_average=5):
+    def plot(self, x_metric, y_metric, countries_to_plot, colormap=cm, use_log_scale=True,
+             min_cases=40, n_days_average=5, fixed_country_colors=True):
 
         # layout/style stuff
-        markers= ["o", "^", "v", "<", ">", "s", "X", "D", "*", "$Y$", "$Z$"]
+        markers = ["o", "^", "v", "<", ">", "s", "X", "D", "*", "$Y$", "$Z$"]
         short_metric_to_long = {
             "confirmed": "Confirmed cases",
-            "deaths":    "Deaths",
-            "active":    "Active cases",
+            "deaths": "Deaths",
+            "active": "Active cases",
             "growth_factor": f"{n_days_average}-day-avg growth factor",
             "deaths/confirmed": "Case Fatality Rate"
         }
@@ -107,8 +114,8 @@ class Covid19Processing:
         elif y_metric == "growth_factor":
             by_country = self.get_country_data("confirmed")
         elif y_metric == "active":
-            by_country = self.get_country_data("confirmed") -\
-                         self.get_country_data("deaths") -\
+            by_country = self.get_country_data("confirmed") - \
+                         self.get_country_data("deaths") - \
                          self.get_country_data("recovered")
         elif len(ratio_parts) == 2 and ratio_parts[0] in self.dataframes and ratio_parts[1] in self.dataframes:
             by_country = self.get_country_data(ratio_parts[0]) / self.get_country_data(ratio_parts[1])
@@ -119,8 +126,13 @@ class Covid19Processing:
             if country not in by_country.index:
                 raise KeyError(f"Country '{country}' not found!")
                 return
-            country_data = by_country.loc[country] # , dates]
-            fill = fills[i % (2*m) < m]
+            country_data = by_country.loc[country]  # , dates]
+            fill = fills[i % (2 * m) < m]
+
+            if fixed_country_colors:
+                color = string_to_color(country)
+            else:
+                color = scalarMap.to_rgba(i)
 
             if y_metric == "growth_factor":
                 if n_days_average % 2 == 0:
@@ -131,22 +143,22 @@ class Covid19Processing:
                 new_cases = pd.Series(scipy.signal.medfilt(country_data.diff(), n_days_average))
                 country_data = new_cases.diff() / new_cases.shift(1) + 1
                 country_data[~np.isfinite(country_data)] = np.nan
-                country_data = np.convolve(country_data, np.ones(n_days_average)/n_days_average, mode="valid")
+                country_data = np.convolve(country_data, np.ones(n_days_average) / n_days_average, mode="valid")
             is_valid = sum(np.nan_to_num(country_data)) > 0
 
             if x_metric == "calendar_date" and is_valid:
-                plt.plot(country_data, marker=markers[i%m], label=country, 
-                     markersize=6, color=scalarMap.to_rgba(i), alpha=1, fillstyle=fill)
+                plt.plot(country_data, marker=markers[i % m], label=country,
+                         markersize=6, color=color, alpha=1, fillstyle=fill)
 
-            elif x_metric == "day_number":                   
+            elif x_metric == "day_number":
                 if y_metric != "growth_factor":
                     country_data = country_data[country_data >= min_cases]
                 if country == "Outside China":
                     length = len(country_data)
                 day_nr = list(range(len(country_data)))
                 if is_valid:
-                    plt.plot(day_nr, country_data, marker=markers[i%m], label=country, 
-                             markersize=6, color=scalarMap.to_rgba(i), alpha=1, fillstyle=fill)
+                    plt.plot(day_nr, country_data, marker=markers[i % m], label=country,
+                             markersize=6, color=color, alpha=1, fillstyle=fill)
 
         if y_metric in short_metric_to_long:
             long_y_metric = short_metric_to_long[y_metric]
@@ -156,16 +168,17 @@ class Covid19Processing:
         if x_metric == "calendar_date":
             plt.xlabel("Date", fontsize=14)
             plt.title(f"COVID-19 {long_y_metric} over time in selected countries", fontsize=18)
-            plt.ylim(0.9*use_log_scale, by_country.loc[countries_to_plot].max().max()*(2-0.9*(not use_log_scale)))
+            plt.ylim(0.9 * use_log_scale,
+                     by_country.loc[countries_to_plot].max().max() * (2 - 0.9 * (not use_log_scale)))
             firstweekday = pd.Timestamp(country_data.index[0]).dayofweek
             plt.gca().xaxis.set_major_locator(mdates.WeekdayLocator(interval=1, byweekday=firstweekday))
         elif x_metric == "day_number":
-            if y_metric != "growth_factor":        
-                floor = 10**math.floor(math.log(min_cases)/math.log(10))
-                floor = floor * (1 - (not use_log_scale))  * .9
-                ceil  = 10**math.ceil(math.log(by_country.loc[countries_to_plot].max().max())/math.log(10))
-                ceil  = ceil * 1.2
-                plt.ylim(floor, ceil)            
+            if y_metric != "growth_factor":
+                floor = 10 ** math.floor(math.log(min_cases) / math.log(10))
+                floor = floor * (1 - (not use_log_scale)) * .9
+                ceil = 10 ** math.ceil(math.log(by_country.loc[countries_to_plot].max().max()) / math.log(10))
+                ceil = ceil * 1.2
+                plt.ylim(floor, ceil)
             plt.xlim(0, length)
             plt.xlabel("Day Number", fontsize=14)
             plt.title(
@@ -189,20 +202,21 @@ class Covid19Processing:
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.gca().tick_params(which="minor", width=0)
-        plt.gca().tick_params(which="major", color=light_grey)    
+        plt.gca().tick_params(which="major", color=light_grey)
         for spine in plt.gca().spines.values():
             spine.set_visible(False)
         plt.show()
 
     def plot_pie(self, y_metric):
         short_y = y_metric.split()[0]
-        plt.figure(figsize=(8,8))
-        data_for_pie = self.dataframes[short_y+"_by_country"].iloc[:,-1]
+        plt.figure(figsize=(8, 8))
+        data_for_pie = self.dataframes[short_y + "_by_country"].iloc[:, -1]
         data_for_pie = data_for_pie[data_for_pie.index != "All except China"]
-        data_for_pie = data_for_pie.sort_values(ascending=False)    
-        countrynames = [x if data_for_pie[x]/data_for_pie.values.sum() > .015 else "" for x in data_for_pie.index]
+        data_for_pie = data_for_pie.sort_values(ascending=False)
+        countrynames = [x if data_for_pie[x] / data_for_pie.values.sum() > .015 else "" for x in data_for_pie.index]
         data_for_pie.plot.pie(startangle=270, autopct=get_pie_label, labels=countrynames,
-                              counterclock=False, pctdistance=.75)
+                              counterclock=False, pctdistance=.75,
+                              colors=[string_to_color(x) for x in data_for_pie.index])
 
         plt.ylabel("")
         plt.title(f"{y_metric.capitalize()} as of {data_for_pie.name.date()}", fontsize=16)
@@ -214,26 +228,26 @@ class Covid19Processing:
         country_data = country_data[np.isfinite(country_data)]
         current_day = country_data.index[-1]
 
-        [L, k, x0], pcov =  scipy.optimize.curve_fit(logistic_func, np.arange(len(country_data)), 
-                                                     country_data, maxfev=10000, 
-                                                     p0=[1e6, 0.5, max(1, len(country_data))],
-                                                     bounds=([1, 0.0, 1], [1e9, 1.0, 300]),
-                                                     method="trf"
+        [L, k, x0], pcov = scipy.optimize.curve_fit(logistic_func, np.arange(len(country_data)),
+                                                    country_data, maxfev=10000,
+                                                    p0=[1e6, 0.5, max(1, len(country_data))],
+                                                    bounds=([1, 0.0, 1], [1e9, 1.0, 300]),
+                                                    method="trf"
                                                     )
 
         # dates up to 100 days after start
-        model_date_list = [current_day + datetime.timedelta(days = n) for n in range(0, len(x) - len(country_data))] 
+        model_date_list = [current_day + datetime.timedelta(days=n) for n in range(0, len(x) - len(country_data))]
         model_date_list = [mdates.date2num(x) for x in model_date_list]
 
         n = len(model_date_list)
         sig_L, sig_k, sig_x0 = np.sqrt(np.diag(pcov))
-        logistic = logistic_func(x[-n:]-1, L, k, x0)
-        logistic_sigma = logistic_func(x[-n:]-1, sig_L, sig_k, sig_x0)
+        logistic = logistic_func(x[-n:] - 1, L, k, x0)
+        logistic_sigma = logistic_func(x[-n:], sig_L, sig_k, sig_x0)
         uncertainty_w = np.linspace(0, 1, len(logistic))
 
         if do_plot:
             plt.plot(country_data, label="Confirmed cases in " + country, markersize=3, zorder=1)
-            plt.plot(model_date_list, 
+            plt.plot(model_date_list,
                      logistic, label=f"{L:.0f} / (1 + e^(-{k:.3f} * (x - {x0:.3f})))", zorder=1)
 
             plt.grid()
@@ -242,12 +256,12 @@ class Covid19Processing:
             plt.xlabel("Date", fontsize=14)
             plt.ylabel("Cases", fontsize=14)
             plt.scatter(mdates.date2num(current_day), country_data[-1], s=20, c="C00", zorder=2)
-            plt.annotate(f"{datetime.datetime.strftime(current_day, '%m/%d')}: {country_data[-1]:,.0f}", 
-                         (mdates.date2num(current_day)-1, country_data[-1]), fontsize=18, ha="right")
+            plt.annotate(f"{datetime.datetime.strftime(current_day, '%m/%d')}: {country_data[-1]:,.0f}",
+                         (mdates.date2num(current_day) - 1, country_data[-1]), fontsize=18, ha="right")
 
             plt.scatter(model_date_list[-1], logistic[-1], s=20, c="C01", zorder=2)
-            plt.annotate(f"{mdates.num2date(model_date_list[-1]).strftime('%m/%d')}: {logistic[-1]:,.0f}", 
-                         (model_date_list[-1]-1, logistic[-1]*1.08), fontsize=18, ha="right")
+            plt.annotate(f"{mdates.num2date(model_date_list[-1]).strftime('%m/%d')}: {logistic[-1]:,.0f}",
+                         (model_date_list[-1] - 1, logistic[-1] * 1.08), fontsize=18, ha="right")
             set_y_axis_format(True)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
@@ -256,14 +270,14 @@ class Covid19Processing:
                 spine.set_visible(False)
             plt.show()
 
-    def simulate_country_history(self, country, population, history_length=28, show_result=False):    
+    def simulate_country_history(self, country, population, history_length=28, show_result=False):
         confirmed = self.dataframes["confirmed_by_country"].loc[country]
         deaths = self.dataframes["deaths_by_country"].loc[country]
         recovered = self.dataframes["recovered_by_country"].loc[country]
         active = confirmed - deaths - recovered
-        uninfected = population - confirmed[-1] - deaths[-1] - recovered[-1 ] 
+        uninfected = population - confirmed[-1] - deaths[-1] - recovered[-1]
 
-        simulation = pd.DataFrame(data=[confirmed, deaths, recovered, active], 
+        simulation = pd.DataFrame(data=[confirmed, deaths, recovered, active],
                                   index=["confirmed", "deaths", "recovered", "active"]).transpose()
         simulation = simulation.fillna(0)
 
@@ -273,26 +287,26 @@ class Covid19Processing:
             if i == 0:
                 case_history[0] = simulation.confirmed[0]
             else:
-                new_cases     = simulation.confirmed.diff()[i]
-                new_deaths    = simulation.deaths.diff()[i]
+                new_cases = simulation.confirmed.diff()[i]
+                new_deaths = simulation.deaths.diff()[i]
                 new_recovered = simulation.recovered.diff()[i]
                 newly_resolved = new_deaths + new_recovered
 
                 case_history[0] = new_cases
-                case_history[1:] = simulation.iloc[i-1, -history_length:]
+                case_history[1:] = simulation.iloc[i - 1, -history_length:]
                 case_history = case_history[:history_length]
 
             for h in range(history_length):
                 x = history_length - h - 1
-                #print(h, x, case_history)
+                # print(h, x, case_history)
                 oldest_active = case_history[x]
-                if i != 0 and newly_resolved > 0:  
-                    if oldest_active >= newly_resolved: 
+                if i != 0 and newly_resolved > 0:
+                    if oldest_active >= newly_resolved:
                         case_history[x] = oldest_active - newly_resolved
                         newly_resolved = 0
                     else:
                         newly_resolved -= oldest_active
-                        case_history[x] = 0                    
+                        case_history[x] = 0
 
                 simulation.at[day.to_datetime64(), f"active_{h}"] = case_history[h]
 
@@ -303,25 +317,25 @@ class Covid19Processing:
         return simulation
 
     def simulate_country(
-         self,
-         country,                      # name of the country to simulate
-         population,                   # population of the country
-         days=30,                      # how many days into the future to simulate
-         cfr=0.02,                     # case fatality rate, 0 to 1
-         history_length=28,            # length of case history
-         sigma_death_days=5,           # Standard deviation in mortality over time distribution
-         growth_rate_trend=[1.2, 0.8]  # Growth factor development over time. This will be linearly
-                                       # interpolated to a vector of length {days}
-        ):
-        growth_rate_per_day = np.interp(np.linspace(0,1,days), 
-                                        np.linspace(0,1,len(growth_rate_trend)), 
+            self,
+            country,  # name of the country to simulate
+            population,  # population of the country
+            days=30,  # how many days into the future to simulate
+            cfr=0.02,  # case fatality rate, 0 to 1
+            history_length=21,  # length of case history
+            sigma_death_days=5,  # Standard deviation in mortality over time distribution
+            growth_rate_trend=[1.2, 0.8]  # Growth factor development over time. This will be linearly
+            # interpolated to a vector of length {days}
+    ):
+        growth_rate_per_day = np.interp(np.linspace(0, 1, days),
+                                        np.linspace(0, 1, len(growth_rate_trend)),
                                         growth_rate_trend)
 
         country_history = self.simulate_country_history(country, population, history_length)
         daily_death_chance = death_chance_per_day(cfr, sigma_death_days, history_length, do_plot=False)
         today = country_history.index[-1]
 
-        for d in range(days):        
+        for d in range(days):
             # column shortcuts
             confirmed = country_history.confirmed
             deaths = country_history.deaths
@@ -335,7 +349,6 @@ class Covid19Processing:
             daily_growth = growth_rate_per_day[d]
             last_delta = confirmed[-1] - confirmed[-2]
 
-
             # Infect
             # TODO: Use R0 and base new cases on active cases, rather than 
             #       growth factor and new cases based on new cases the day before
@@ -346,8 +359,7 @@ class Covid19Processing:
             # Deaths
             new_deaths = 0
             for case_duration in range(history_length):
-                p = daily_death_chance[case_duration]
-                deaths_for_duration = np.random.binomial(case_history[case_duration], 
+                deaths_for_duration = np.random.binomial(case_history[case_duration],
                                                          daily_death_chance[case_duration])
                 case_history[case_duration] -= deaths_for_duration
                 new_deaths += deaths_for_duration
@@ -370,9 +382,10 @@ class Covid19Processing:
 
         return country_history, today
 
-    def plot_simulation(self, country, days, growth_rate_trend, do_log=False):
-        simulation, today = self.simulate_country(country=country, population=330e6, days=days, 
-                                                  growth_rate_trend=growth_rate_trend)
+    def plot_simulation(self, country, days, growth_rate_trend, history_length=21, do_log=False):
+        simulation, today = self.simulate_country(country=country, population=330e6, days=days,
+                                                  growth_rate_trend=growth_rate_trend,
+                                                  history_length=history_length)
 
         for metric in ["confirmed cases", "deaths", "active cases", "recovered cases"]:
             short_metric = metric.split()[0]
