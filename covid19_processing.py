@@ -123,11 +123,15 @@ class Covid19Processing:
             fill = fills[i % (2*m) < m]
 
             if y_metric == "growth_factor":
+                if n_days_average % 2 == 0:
+                    print(f"Error: n_days_average is {n_days_average}, but has to be odd!")
+                    return
                 if x_metric == "day_number":
                     country_data = country_data[country_data >= min_cases]
-                country_data = country_data.diff() / country_data + 1
+                new_cases = pd.Series(scipy.signal.medfilt(country_data.diff(), n_days_average))
+                country_data = new_cases.diff() / new_cases.shift(1) + 1
+                country_data[~np.isfinite(country_data)] = np.nan
                 country_data = np.convolve(country_data, np.ones(n_days_average)/n_days_average, mode="valid")
-
             is_valid = sum(np.nan_to_num(country_data)) > 0
 
             if x_metric == "calendar_date" and is_valid:
@@ -142,7 +146,7 @@ class Covid19Processing:
                 day_nr = list(range(len(country_data)))
                 if is_valid:
                     plt.plot(day_nr, country_data, marker=markers[i%m], label=country, 
-                             markersize=7, color=scalarMap.to_rgba(i), alpha=1, fillstyle=fill)
+                             markersize=6, color=scalarMap.to_rgba(i), alpha=1, fillstyle=fill)
 
         if y_metric in short_metric_to_long:
             long_y_metric = short_metric_to_long[y_metric]
