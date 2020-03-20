@@ -40,7 +40,7 @@ def truncate(n, decimals, as_int=True):
         result = math.trunc(p * n) / p
     else:
         result = n
-    if as_int:
+    if as_int or decimals == 0:
         result = int(result)
     else:
         result = round(result, decimals)  # sometimes the result is still off due to float errors

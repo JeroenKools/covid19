@@ -395,10 +395,10 @@ class Covid19Processing:
 
         return country_history, today
 
-    def plot_simulation(self, country, days, growth_rate_trend, history_length=21, do_log=False, scenario_name=""):
-        simulation, today = self.simulate_country(country=country, population=330e6, days=days,
-                                                  growth_rate_trend=growth_rate_trend,
-                                                  history_length=history_length)
+    def plot_simulation(self, country, population, days, growth_rate_trend,
+                        history_length=21, do_log=False, scenario_name=""):
+        simulation, today = self.simulate_country(country=country, population=population, days=days,
+                                                  growth_rate_trend=growth_rate_trend, history_length=history_length)
 
         plt.figure(figsize=(13, 18))
         for i, metric in enumerate(["confirmed cases", "deaths", "active cases", "recovered cases"]):
@@ -423,9 +423,9 @@ class Covid19Processing:
         plt.show()
         simulation = simulation.astype(int)
         display(Markdown(f"### {scenario_name} final tally:"))
-        print(f"Confirmed: {kmb_number_format(simulation.confirmed[-1])},\n" +
-              f"Deaths: {kmb_number_format(simulation.deaths[-1])},\n" +
-              f"Recovered: {kmb_number_format(simulation.recovered[-1])}")
+        print(f"Confirmed: {kmb_number_format(simulation.confirmed[-1], 3 , False)},\n" +
+              f"Deaths: {kmb_number_format(simulation.deaths[-1], 3 , False)},\n" +
+              f"Recovered: {kmb_number_format(simulation.recovered[-1], 3 , False)}")
 
         return simulation
 
