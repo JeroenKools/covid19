@@ -14,7 +14,7 @@ import numpy as np
 from scipy.signal import gaussian
 
 register_matplotlib_converters()
-light_grey = (.85, .85, .85, 1)  # Plot background color
+light_grey = (.90, .90, .90, 1)  # Plot background color
 matplotlib.rcParams['figure.figsize'] = (14, 8)  # Default size of all figures
 matplotlib.rcParams['axes.facecolor'] = light_grey  # Default background color of all graph areas
 matplotlib.rcParams['figure.facecolor'] = light_grey  # Default background color of all figure borders
@@ -32,32 +32,41 @@ data_urls = {
     "recovered": "time_series_19-covid-Recovered.csv"
 }
 
-from IPython.display import HTML
-import random
-
 
 # Truncate (drop after given number of decimals instead of rounding)
-def truncate(n, decimals):
+def truncate(n, decimals, as_int=True):
     p = int(10 ** decimals)
     if decimals > 0:
-        return int(math.trunc(p * n) / p)
+        result = math.trunc(p * n) / p
     else:
-        return int(n)
+        result = n
+    if as_int:
+        result = int(result)
+    else:
+        result = round(result, decimals)  # sometimes the result is still off due to float errors
+    return result
 
 
 # Format large numbers with k for thousands, M for millions, B for billions
-def kmb_number_format(n, digits=4):
+def kmb_number_format(n, digits=3, as_int=True):
     if n <= 0:
         return 0
     decimals = int(digits - (math.log(n) / math.log(10)) % 3)
     if n < 1e3:
-        return f"{truncate(n, decimals)}"
+        div = 1
+        suffix = ""
+        as_int = True
     elif n < 1e6:
-        return f"{truncate(n / 1e3, decimals)}K"
+        div = 1e3
+        suffix = "K"
     elif n < 1e9:
-        return f"{truncate(n / 1e6, decimals)}M"
+        div = 1e6
+        suffix = "M"
     else:
-        return f"{truncate(n / 1e9, decimals)}B"
+        div = 1e9
+        suffix = "B"
+
+    return f"{truncate(n/div, decimals, as_int)}{suffix}"
 
 
 # Convenience function for labelling the y-axis
@@ -142,15 +151,15 @@ def string_to_color(s, offset=14):
     else:
         country_hash = hashlib.md5(s.lower().encode()).hexdigest()
         hue = 0
-        sat = 0.7
-        val = 0.8
+        sat = 0.9
+        val = 0.9
 
         for i, char in enumerate(binascii.unhexlify(country_hash)[offset:offset+3]):
             if i == 0:
                 hue = char / 255
             elif i == 1:
-                sat += 0.3 * char / 255
+                sat += 0.1 * char / 255
             elif i == 2:
-                val += 0.2 * char / 255
+                val += 0.1 * char / 255
 
         return colorsys.hsv_to_rgb(hue, sat, val)

@@ -256,11 +256,13 @@ class Covid19Processing:
             plt.xlabel("Date", fontsize=14)
             plt.ylabel("Cases", fontsize=14)
             plt.scatter(mdates.date2num(current_day), country_data[-1], s=20, c="C00", zorder=2)
-            plt.annotate(f"{datetime.datetime.strftime(current_day, '%m/%d')}: {country_data[-1]:,.0f}",
-                         (mdates.date2num(current_day) - 1, country_data[-1]), fontsize=18, ha="right")
+            plt.annotate(
+                f"{datetime.datetime.strftime(current_day, '%m/%d')}: {kmb_number_format(country_data[-1], 3, 0)}",
+                (mdates.date2num(current_day) - 1, country_data[-1]), fontsize=18, ha="right")
 
             plt.scatter(model_date_list[-1], logistic[-1], s=20, c="C01", zorder=2)
-            plt.annotate(f"{mdates.num2date(model_date_list[-1]).strftime('%m/%d')}: {logistic[-1]:,.0f}",
+            plt.annotate(
+                f"{mdates.num2date(model_date_list[-1]).strftime('%m/%d')}: {kmb_number_format(logistic[-1], 3, 0)}",
                          (model_date_list[-1] - 1, logistic[-1] * 1.08), fontsize=18, ha="right")
             set_y_axis_format(True)
             plt.xticks(fontsize=12)
