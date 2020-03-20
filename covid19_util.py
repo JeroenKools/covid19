@@ -163,3 +163,18 @@ def string_to_color(s, offset=14):
                 val += 0.1 * char / 255
 
         return colorsys.hsv_to_rgb(hue, sat, val)
+
+
+def gauss(n=11,sigma=1):
+    r = range(-int(n/2), int(n/2)+1)
+    return [1 / (sigma * math.sqrt(2*math.pi)) * math.exp(-float(x)**2/(2*sigma**2)) for x in r]
+
+
+def halfgauss(n=6, sigma=1, ascending=True):
+    g = gauss(2*n+1, sigma)
+    g = g[:n+1]
+    g = g + n * [0]
+    s = sum(g)
+    if not ascending:
+        g = g[::-1]
+    return [x/s for x in g]

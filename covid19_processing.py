@@ -77,20 +77,35 @@ class Covid19Processing:
         with pd.option_context("display.max_rows", 10, "display.max_columns", 10):
             display(self.dataframes["confirmed_by_country"])
 
-    def list_countries(self):
+    def list_countries(self, columns=5):
         confirmed_by_country = self.dataframes["confirmed_by_country"]
         n_countries = len(confirmed_by_country)
         display(Markdown(f"### {n_countries} countries/territories affected:\n"))
         for i, k in enumerate(confirmed_by_country.index):
             if len(k) > 19:
                 k = k[:18].strip() + "."
-            print(f"{k:20}", end=" " if (i + 1) % 5 else "\n")  # Every 5 items, end with a newline
+            print(f"{k:20}", end=" " if (i + 1) % columns else "\n")  # Every 5 items, end with a newline
 
     def get_country_data(self, metric):
         return self.dataframes[metric + "_by_country"]
 
+    def get_new_cases_details(self, country, avg_n=5, median_n=3):
+        country_data = self.dataframes["confirmed_by_country"].loc[country]
+        df = pd.DataFrame(country_data)
+        df = df.rename(columns={country: "confirmed_cases"})
+        df.loc[:, "new_cases"] = np.maximum(0, country_data.diff())
+        df = df.loc[df.new_cases > 1, :]
+        df.loc[:, "growth_factor"] = df.new_cases.diff() / df.new_cases.shift(1) + 1
+        df[~np.isfinite(df)] = np.nan
+        df.loc[:, "filtered_new_cases"] = \
+            scipy.ndimage.convolve(df.new_cases, np.ones(avg_n) / avg_n, origin=-avg_n // 2 + 1)
+        df.loc[:, "filtered_growth_factor"] = \
+            df.filtered_new_cases.diff() / df.filtered_new_cases.shift(1) + 1
+        df.filtered_growth_factor = scipy.ndimage.median_filter(df.filtered_growth_factor, median_n, mode="nearest")
+        return df
+
     def plot(self, x_metric, y_metric, countries_to_plot, colormap=cm, use_log_scale=True,
-             min_cases=40, n_days_average=5, fixed_country_colors=True):
+             min_cases=0, sigma=5, fixed_country_colors=True):
 
         # layout/style stuff
         markers = ["o", "^", "v", "<", ">", "s", "X", "D", "*", "$Y$", "$Z$"]
@@ -98,7 +113,7 @@ class Covid19Processing:
             "confirmed": "Confirmed cases",
             "deaths": "Deaths",
             "active": "Active cases",
-            "growth_factor": f"{n_days_average}-day-avg growth factor",
+            "growth_factor": f"{sigma}-day avg growth factor",
             "deaths/confirmed": "Case Fatality Rate"
         }
         fills = ["none", "full"]  # alternate between filled and empty markers
@@ -119,6 +134,7 @@ class Covid19Processing:
                          self.get_country_data("recovered")
         elif len(ratio_parts) == 2 and ratio_parts[0] in self.dataframes and ratio_parts[1] in self.dataframes:
             by_country = self.get_country_data(ratio_parts[0]) / self.get_country_data(ratio_parts[1])
+            by_country = by_country[self.get_country_data(ratio_parts[1]) > min_cases]
         else:
             print(f"{y_metric}' is an invalid y_metric!")
 
@@ -135,15 +151,10 @@ class Covid19Processing:
                 color = scalarMap.to_rgba(i)
 
             if y_metric == "growth_factor":
-                if n_days_average % 2 == 0:
-                    print(f"Error: n_days_average is {n_days_average}, but has to be odd!")
-                    return
+                df = self.get_new_cases_details(country, sigma)
                 if x_metric == "day_number":
-                    country_data = country_data[country_data >= min_cases]
-                new_cases = pd.Series(scipy.signal.medfilt(country_data.diff(), n_days_average))
-                country_data = new_cases.diff() / new_cases.shift(1) + 1
-                country_data[~np.isfinite(country_data)] = np.nan
-                country_data = np.convolve(country_data, np.ones(n_days_average) / n_days_average, mode="valid")
+                    df = df[df.iloc[:, 0] >= min_cases]
+                country_data = df.filtered_growth_factor
             is_valid = sum(np.nan_to_num(country_data)) > 0
 
             if x_metric == "calendar_date" and is_valid:
@@ -230,8 +241,8 @@ class Covid19Processing:
 
         [L, k, x0], pcov = scipy.optimize.curve_fit(logistic_func, np.arange(len(country_data)),
                                                     country_data, maxfev=10000,
-                                                    p0=[1e5, 0.5, np.clip(len(country_data), 1, 200)],
-                                                    bounds=([1, 0.1, 1], [1e8, 0.999, 400]),
+                                                    p0=[country_data.max()*2, 0.5, np.clip(len(country_data), 1, 200)],
+                                                    bounds=([1, 0.1, 1], [1e9, 0.999, 400]),
                                                     method="trf"
                                                     )
 
@@ -405,3 +416,11 @@ class Covid19Processing:
             plt.show()
 
         return simulation
+
+    def country_highlight(self, country):
+        country_data = self.get_new_cases_details(country).round(2)[["new_cases"]]
+        display(country_data.tail(7))
+        country_data.plot()
+        plt.title(country, fontsize=20)
+        plt.grid()
+        plt.show()
