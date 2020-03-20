@@ -390,21 +390,23 @@ class Covid19Processing:
             country_history.at[next_day, "confirmed"] = last_confirmed + new_cases
             country_history.at[next_day, "deaths"] = deaths.loc[last_day] + new_deaths
             country_history.at[next_day, "recovered"] = recovered.loc[last_day] + new_recovered
-            country_history.at[next_day, "active"] = active.loc[last_day] + new_cases - new_deaths - new_recovered
+            country_history.at[next_day, "active"] = case_history.sum()  # active.loc[last_day] + new_cases - new_deaths - new_recovered
             country_history.iloc[-1, -history_length:] = case_history
 
         return country_history, today
 
-    def plot_simulation(self, country, days, growth_rate_trend, history_length=21, do_log=False):
+    def plot_simulation(self, country, days, growth_rate_trend, history_length=21, do_log=False, scenario_name=""):
         simulation, today = self.simulate_country(country=country, population=330e6, days=days,
                                                   growth_rate_trend=growth_rate_trend,
                                                   history_length=history_length)
 
-        for metric in ["confirmed cases", "deaths", "active cases", "recovered cases"]:
+        plt.figure(figsize=(13, 18))
+        for i, metric in enumerate(["confirmed cases", "deaths", "active cases", "recovered cases"]):
+            plt.subplot(4, 1, i+1)
             short_metric = metric.split()[0]
             plt.plot(simulation.loc[:today, short_metric], c="C00", label="Actual")
             plt.plot(simulation.loc[today:, short_metric], c="C01", label="Simulated")
-            plt.title(f"Simulation of {metric} of COVID-19 in {country} for the next {days} days", fontsize=16)
+            plt.title(metric.capitalize(), fontsize=16)
             set_y_axis_format(log=do_log)
             plt.grid()
             plt.legend(loc="upper left")
@@ -413,7 +415,17 @@ class Covid19Processing:
             plt.yticks([float(10**x) for x in range(0, power+1)])
             plt.ylim(1, ceil)
             plt.minorticks_off()
-            plt.show()
+        title = f"Covid-19 simulation for {country} for the next {days} days"
+        if scenario_name:
+            title += ": " + scenario_name + " scenario"
+        plt.suptitle(title, fontsize=20, y=1.03)
+        plt.tight_layout()
+        plt.show()
+        simulation = simulation.astype(int)
+        display(Markdown(f"### {scenario_name} final tally:"))
+        print(f"Confirmed: {kmb_number_format(simulation.confirmed[-1])},\n" +
+              f"Deaths: {kmb_number_format(simulation.deaths[-1])},\n" +
+              f"Recovered: {kmb_number_format(simulation.recovered[-1])}")
 
         return simulation
 
