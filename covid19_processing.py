@@ -52,6 +52,11 @@ class Covid19Processing:
                 # I assume that the 45 is incorrect. Replace with 23.5, halfway between the values for 2/5 and 2/7
                 by_country.loc["Japan", pd.to_datetime("2/06/20")] = 23.5
 
+            if metric == "recovered":
+                # US recovered per state is 0 for these days, while nationwide data is not in the time series csv at all
+                by_country.loc["US", pd.to_datetime("3/18/20")] = 106
+                by_country.loc["US", pd.to_datetime("3/19/20")] = 108
+
                 # Change some weird formal names to more commonly used ones
             by_country = by_country.rename(index={"Republic of Korea": "South Korea",
                                                   "Holy See": "Vatican City",
@@ -290,10 +295,9 @@ class Covid19Processing:
         deaths = self.dataframes["deaths_by_country"].loc[country]
         recovered = self.dataframes["recovered_by_country"].loc[country]
         active = confirmed - deaths - recovered
-        uninfected = population - confirmed[-1] - deaths[-1] - recovered[-1]
-
-        simulation = pd.DataFrame(data=[confirmed, deaths, recovered, active],
-                                  index=["confirmed", "deaths", "recovered", "active"]).transpose()
+        uninfected = (population - confirmed).fillna(population)
+        simulation = pd.DataFrame(data=[confirmed, deaths, recovered, active, uninfected],
+                                  index=["confirmed", "deaths", "recovered", "active", "uninfected"]).transpose()
         simulation = simulation.fillna(0)
 
         # reconstruct active case durations by assuming FIFO
@@ -356,8 +360,8 @@ class Covid19Processing:
             deaths = country_history.deaths
             active = country_history.active
             recovered = country_history.recovered
-            uninfected = int(np.maximum(0, population -
-                                        confirmed.iloc[-1] - deaths.iloc[-1] - active.iloc[-1] - recovered.iloc[-1]))
+            alive = population - deaths.iloc[-1]
+            uninfected = int(np.maximum(0, population - confirmed.iloc[-1]))
             case_history = country_history.iloc[-1, -history_length:].copy()
 
             last_day = confirmed.index[-1]
@@ -369,7 +373,7 @@ class Covid19Processing:
             # TODO: Use R0 and base new cases on active cases, rather than 
             #       growth factor and new cases based on new cases the day before
             last_confirmed = confirmed.loc[last_day]
-            uninfected_ratio = uninfected / (uninfected + active[-1])
+            uninfected_ratio = uninfected / alive
             new_cases = int(np.maximum(0, last_delta * daily_growth * uninfected_ratio))
 
             # Deaths
@@ -390,7 +394,8 @@ class Covid19Processing:
             country_history.at[next_day, "confirmed"] = last_confirmed + new_cases
             country_history.at[next_day, "deaths"] = deaths.loc[last_day] + new_deaths
             country_history.at[next_day, "recovered"] = recovered.loc[last_day] + new_recovered
-            country_history.at[next_day, "active"] = case_history.sum()  # active.loc[last_day] + new_cases - new_deaths - new_recovered
+            country_history.at[next_day, "active"] = case_history.sum()
+            country_history.at[next_day, "uninfected"] = uninfected
             country_history.iloc[-1, -history_length:] = case_history
 
         return country_history, today
@@ -400,17 +405,18 @@ class Covid19Processing:
         simulation, today = self.simulate_country(country=country, population=population, days=days,
                                                   growth_rate_trend=growth_rate_trend, history_length=history_length)
 
-        plt.figure(figsize=(13, 18))
-        for i, metric in enumerate(["confirmed cases", "deaths", "active cases", "recovered cases"]):
-            plt.subplot(4, 1, i+1)
+        plt.figure(figsize=(13, 8))
+        metrics = ["confirmed cases", "deaths", "active cases", "recovered cases"]
+        cm = plt.cm.get_cmap("tab10")
+
+        for i, metric in enumerate(metrics):
             short_metric = metric.split()[0]
-            plt.plot(simulation.loc[:today, short_metric], c="C00", label="Actual")
-            plt.plot(simulation.loc[today:, short_metric], c="C01", label="Simulated")
-            plt.title(metric.capitalize(), fontsize=16)
+            plt.plot(simulation.loc[:today, short_metric], c=cm.colors[i], label=f"{metric.capitalize()}")
+            plt.plot(simulation.loc[today:, short_metric], "-.", c=cm.colors[i], alpha=0.75)
             set_y_axis_format(log=do_log)
             plt.grid()
             plt.legend(loc="upper left")
-            power = int(math.ceil(math.log(simulation.loc[:,short_metric].max())/math.log(10)))
+            power = int(math.ceil(math.log(simulation.loc[:, short_metric].max())/math.log(10)))
             ceil = 1.03 * 10**power
             plt.yticks([float(10**x) for x in range(0, power+1)])
             plt.ylim(1, ceil)
@@ -420,12 +426,16 @@ class Covid19Processing:
             title += ": " + scenario_name + " scenario"
         plt.suptitle(title, fontsize=20, y=1.03)
         plt.tight_layout()
+        plt.grid()
         plt.show()
         simulation = simulation.astype(int)
         display(Markdown(f"### {scenario_name} final tally:"))
+        peak_active = simulation.active.max()
+        peak_active_date = simulation.active[simulation.active == simulation.active.max()].index[0].date()
         print(f"Confirmed: {kmb_number_format(simulation.confirmed[-1], 3 , False)},\n" +
               f"Deaths: {kmb_number_format(simulation.deaths[-1], 3 , False)},\n" +
-              f"Recovered: {kmb_number_format(simulation.recovered[-1], 3 , False)}")
+              f"Recovered: {kmb_number_format(simulation.recovered[-1], 3 , False)},\n"
+              f"Peak active: {kmb_number_format(peak_active, 3, False)} at {peak_active_date}")
 
         return simulation
 
