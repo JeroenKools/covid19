@@ -70,11 +70,22 @@ def kmb_number_format(n, digits=3, as_int=True):
 
 
 # Convenience function for labelling the y-axis
-def set_y_axis_format(log=True):
+def set_y_axis_format(data, log=True):
+    power = int(math.ceil(math.log(data.max().max()) / math.log(10)))
+    ceil = 1.03 * 10 ** power
+    plt.ylim(0.98, ceil)
+
     if log:
         plt.yscale("log", basey=10)
+        plt.yticks([float(10 ** x) for x in range(0, power + 1)])
+
     plt.gca().get_yaxis().set_major_formatter(
         matplotlib.ticker.FuncFormatter(lambda x, p: kmb_number_format(x)))
+
+    plt.minorticks_off()
+    plt.gca().tick_params(which="major", color=light_grey)
+    for spine in plt.gca().spines.values():
+        spine.set_visible(False)
 
 
 def normalize_to_target_product(dist, target):

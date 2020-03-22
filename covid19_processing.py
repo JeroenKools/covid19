@@ -54,8 +54,11 @@ class Covid19Processing:
 
             if metric == "recovered":
                 # US recovered per state is 0 for these days, while nationwide data is not in the time series csv at all
+                # See here: https://github.com/CSSEGISandData/COVID-19/issues/1113
                 by_country.loc["US", pd.to_datetime("3/18/20")] = 106
                 by_country.loc["US", pd.to_datetime("3/19/20")] = 108
+                by_country.loc["US", pd.to_datetime("3/20/20")] = 147
+                by_country.loc["US", pd.to_datetime("3/21/20")] = 171
 
                 # Change some weird formal names to more commonly used ones
             by_country = by_country.rename(index={"Republic of Korea": "South Korea",
@@ -95,10 +98,12 @@ class Covid19Processing:
         return self.dataframes[metric + "_by_country"]
 
     def get_new_cases_details(self, country, avg_n=5, median_n=3):
-        country_data = self.dataframes["confirmed_by_country"].loc[country]
-        df = pd.DataFrame(country_data)
+        confirmed = self.dataframes["confirmed_by_country"].loc[country]
+        deaths = self.dataframes["deaths_by_country"].loc[country]
+        df = pd.DataFrame(confirmed)
         df = df.rename(columns={country: "confirmed_cases"})
-        df.loc[:, "new_cases"] = np.maximum(0, country_data.diff())
+        df.loc[:, "new_cases"] = np.maximum(0, confirmed.diff())
+        df.loc[:, "new_deaths"] = np.maximum(0, deaths.diff())
         df = df.loc[df.new_cases > 1, :]
         df.loc[:, "growth_factor"] = df.new_cases.diff() / df.new_cases.shift(1) + 1
         df[~np.isfinite(df)] = np.nan
@@ -213,7 +218,7 @@ class Covid19Processing:
             else:
                 plt.ylim((0, 0.12))
         else:
-            set_y_axis_format(use_log_scale)
+            set_y_axis_format(country_data, use_log_scale)
         plt.grid()
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
@@ -280,7 +285,7 @@ class Covid19Processing:
             plt.annotate(
                 f"{mdates.num2date(model_date_list[-1]).strftime('%m/%d')}: {kmb_number_format(logistic[-1], 3, 0)}",
                          (model_date_list[-1] - 1, logistic[-1] * 1.08), fontsize=18, ha="right")
-            set_y_axis_format(True)
+            set_y_axis_format(logistic, True)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
             plt.gca().tick_params(which="both", color=light_grey)
@@ -413,14 +418,10 @@ class Covid19Processing:
             short_metric = metric.split()[0]
             plt.plot(simulation.loc[:today, short_metric], c=cm.colors[i], label=f"{metric.capitalize()}")
             plt.plot(simulation.loc[today:, short_metric], "-.", c=cm.colors[i], alpha=0.75)
-            set_y_axis_format(log=do_log)
             plt.grid()
             plt.legend(loc="upper left")
-            power = int(math.ceil(math.log(simulation.loc[:, short_metric].max())/math.log(10)))
-            ceil = 1.03 * 10**power
-            plt.yticks([float(10**x) for x in range(0, power+1)])
-            plt.ylim(1, ceil)
-            plt.minorticks_off()
+
+        set_y_axis_format(simulation.loc[:, "confirmed"], log=do_log)
         title = f"Covid-19 simulation for {country} for the next {days} days"
         if scenario_name:
             title += ": " + scenario_name + " scenario"
@@ -440,9 +441,16 @@ class Covid19Processing:
         return simulation
 
     def country_highlight(self, country):
-        country_data = self.get_new_cases_details(country).round(2)[["new_cases"]]
+        metrics = ["new_cases", "new_deaths"]
+        country_data = self.get_new_cases_details(country).round(2)[metrics]
         display(country_data.tail(7))
-        country_data.plot()
-        plt.title(country, fontsize=20)
+
+        for metric in metrics:
+            data = country_data[metric]
+            plt.plot(country_data.index, data, label=metric.capitalize().replace("_", " "))
+
+        plt.title(f"{country} situation as of {country_data.index[-1].date()}", fontsize=20)
         plt.grid()
+        plt.legend()
+        set_y_axis_format(country_data[metrics], log=True)
         plt.show()
