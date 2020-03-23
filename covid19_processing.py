@@ -4,6 +4,7 @@ from matplotlib import dates as mdates
 import pandas as pd
 import requests
 import scipy.optimize
+import scipy.stats
 from io import StringIO
 import datetime
 import geonamescache
@@ -420,49 +421,58 @@ class Covid19Processing:
             country,  # name of the country to simulate
             days=30,  # how many days into the future to simulate
             cfr=0.02,  # case fatality rate, 0 to 1
-            history_length=21,  # length of case history
-            sigma_death_days=5,  # Standard deviation in mortality over time distribution
-            growth_rate_trend=[1.2, 0.8]  # Growth factor development over time. This will be linearly
-            # interpolated to a vector of length {days}
+            history_length=21,     # Length of case history
+            sigma_death_days=2.5,  # Standard deviation in mortality over time distribution
+            r0=2.5,
+            mitigation_trend=(1.0, 0.5)  # Mitigation factor development over time. This will be linearly
+                                         # interpolated to a vector of length {days}
     ):
         population = self.country_metadata[country]["population"]
-        growth_rate_per_day = np.interp(np.linspace(0, 1, days),
-                                        np.linspace(0, 1, len(growth_rate_trend)),
-                                        growth_rate_trend)
-
         country_history = self.simulate_country_history(country, history_length)
-        daily_death_chance = death_chance_per_day(cfr, sigma_death_days, history_length, do_plot=False)
+
+        daily_mitigation = np.interp(np.linspace(0, 1, days),
+                                                   np.linspace(0, 1, len(mitigation_trend)),
+                                                   mitigation_trend)
+
+        daily_death_chance = death_chance_per_day(cfr, 10.5, sigma_death_days, history_length, do_plot=False)
+
+        # https://www.jwatch.org/na51083/2020/03/13/covid-19-incubation-period-update
+        # https://www.medrxiv.org/content/10.1101/2020.03.05.20030502v1.full.pdf
+        daily_transmission_chance = scipy.stats.norm.pdf(np.linspace(0, history_length, history_length+1),
+                                                              loc=5.5,
+                                                              scale=1.6
+                                                         )
         today = country_history.index[-1]
 
         for d in range(days):
             # column shortcuts
             confirmed = country_history.confirmed
             deaths = country_history.deaths
-            active = country_history.active
             recovered = country_history.recovered
-            alive = population - deaths.iloc[-1]
-            uninfected = int(np.maximum(0, population - confirmed.iloc[-1]))
             case_history = country_history.iloc[-1, -history_length:].copy()
 
             last_day = confirmed.index[-1]
             next_day = last_day + pd.DateOffset(1)
-            daily_growth = growth_rate_per_day[d]
-            last_delta = confirmed[-1] - confirmed[-2]
+
+            current_alive = population - deaths.iloc[-1]
+            current_uninfected = int(np.maximum(0, population - confirmed.iloc[-1]))
+            current_uninfected_ratio = current_uninfected / current_alive
+            current_mitigation = daily_mitigation[d]
 
             # Infect
-            # TODO: Use R0 and base new cases on active cases, rather than 
-            #       growth factor and new cases based on new cases the day before
-            last_confirmed = confirmed.loc[last_day]
-            uninfected_ratio = uninfected / alive
-            new_cases = int(np.maximum(0, last_delta * daily_growth * uninfected_ratio))
-
+            r_eff = r0 * current_mitigation * current_uninfected_ratio
+            new_cases = 0
+            for case_duration in range(history_length):
+                new_cases_for_case_duration = np.random.binomial(case_history[case_duration],
+                                                                 r_eff*daily_transmission_chance[case_duration])
+                new_cases += int(round(new_cases_for_case_duration))
             # Deaths
             new_deaths = 0
             for case_duration in range(history_length):
-                deaths_for_duration = np.random.binomial(case_history[case_duration],
-                                                         daily_death_chance[case_duration])
-                case_history[case_duration] -= deaths_for_duration
-                new_deaths += deaths_for_duration
+                deaths_for_case_duration = np.random.binomial(case_history[case_duration],
+                                                              daily_death_chance[case_duration])
+                case_history[case_duration] -= deaths_for_case_duration
+                new_deaths += deaths_for_case_duration
 
             # Recoveries
             new_recovered = case_history[-1]
@@ -471,20 +481,22 @@ class Covid19Processing:
             case_history[1:] = case_history[:-1]
             case_history.iloc[0] = new_cases
 
-            country_history.at[next_day, "confirmed"] = last_confirmed + new_cases
+            country_history.at[next_day, "confirmed"] = confirmed.loc[last_day] + new_cases
             country_history.at[next_day, "deaths"] = deaths.loc[last_day] + new_deaths
             country_history.at[next_day, "recovered"] = recovered.loc[last_day] + new_recovered
             country_history.at[next_day, "active"] = case_history.sum()
-            country_history.at[next_day, "uninfected"] = uninfected
+            country_history.at[next_day, "uninfected"] = current_uninfected
             country_history.iloc[-1, -history_length:] = case_history
 
         return country_history, today
 
-    def plot_simulation(self, country, days, growth_rate_trend, cfr=0.02,
+    def plot_simulation(self, country, days, mitigation_trend, cfr=0.02, r0=2.5,
                         history_length=21, do_log=False, scenario_name=""):
 
         simulation, today = self.simulate_country(country=country, days=days, cfr=cfr,
-                                                  growth_rate_trend=growth_rate_trend, history_length=history_length)
+                                                  mitigation_trend=mitigation_trend,
+                                                  r0=r0,
+                                                  history_length=history_length)
 
         plt.figure(figsize=(13, 8))
         metrics = ["confirmed cases", "deaths", "active cases", "recovered cases"]
@@ -495,7 +507,9 @@ class Covid19Processing:
             plt.plot(simulation.loc[:today, short_metric], c=cm.colors[i], label=f"{metric.capitalize()}")
             plt.plot(simulation.loc[today:, short_metric], "-.", c=cm.colors[i], alpha=0.75)
             plt.grid()
-            plt.legend(loc="upper left")
+        plt.plot(simulation.loc[:today, "confirmed"].diff(), c=cm.colors[i+1], label="Daily new cases")
+        plt.plot(simulation.loc[today - pd.DateOffset(1):, "confirmed"].diff(), "-.", c=cm.colors[i + 1], alpha=0.75)
+        plt.legend(loc="upper left")
 
         set_y_axis_format(simulation.loc[:, "confirmed"].max().max(), log=do_log)
         title = f"Covid-19 simulation for {country} for the next {days} days"

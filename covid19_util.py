@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 from IPython.display import display, Markdown
 import numpy as np
+import scipy.stats
 from scipy.signal import gaussian
 
 register_matplotlib_converters()
@@ -106,10 +107,11 @@ def normalize_to_target_product(dist, target):
     return dist
 
 
-def death_chance_per_day(cfr, sigma, length, do_plot):
+def death_chance_per_day(cfr, mu, sigma, length, do_plot):
     # Approximate survival and death odds
     x = np.arange(length)
-    death_chance = gaussian(length, sigma)
+    #death_chance = gaussian(length, sigma)
+    death_chance = scipy.stats.norm.pdf(np.linspace(0, length-1, length ), loc=mu, scale=sigma)
     death_chance = death_chance / sum(death_chance) * cfr
     survive_chance_per_day = 1 - death_chance
 
@@ -192,7 +194,7 @@ def gauss(n=11,sigma=1):
     return [1 / (sigma * math.sqrt(2*math.pi)) * math.exp(-float(x)**2/(2*sigma**2)) for x in r]
 
 
-def halfgauss(n=6, sigma=1, ascending=True):
+def half_gauss(n=6, sigma=1, ascending=True):
     g = gauss(2*n+1, sigma)
     g = g[:n+1]
     g = g + n * [0]
