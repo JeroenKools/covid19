@@ -1,7 +1,5 @@
 # Builtins
 import math
-import hashlib
-import binascii
 import colorsys
 
 # Third party modules
@@ -30,6 +28,16 @@ data_urls = {
     "confirmed": "time_series_19-covid-Confirmed.csv",
     "deaths": "time_series_19-covid-Deaths.csv",
     "recovered": "time_series_19-covid-Recovered.csv"
+}
+
+continent_codes = {
+    "AF": "Africa",
+    "AN": "Antarctica",
+    "AS": "Asia",
+    "EU": "Europe",
+    "NA": "North America",
+    "OC": "Oceania",
+    "SA": "South America"
 }
 
 
@@ -70,9 +78,12 @@ def kmb_number_format(n, digits=3, as_int=True):
 
 
 # Convenience function for labelling the y-axis
-def set_y_axis_format(data, log=True):
-    power = int(math.ceil(math.log(data.max().max()) / math.log(10)))
-    ceil = 1.03 * 10 ** power
+def set_y_axis_format(ymax, log=True):
+    power = int(math.ceil(math.log(ymax) / math.log(10)))
+    if power % 1 > 0.69897:
+        ceil = 1.03 * 10 ** power
+    else:
+        ceil = 1.03 * 10 ** (power - 0.30103)
     plt.ylim(0.98, ceil)
 
     if log:
@@ -148,32 +159,32 @@ def get_pie_label(pct):
         return ""
 
 
-def string_to_color(s, offset=14):
+def string_to_color(name, offset=4):
     fixed_colors = {
         "Netherlands": (1.0, 0.4, 0.0),
-        "US": (0.0, 0.7, 1.0),
+        "United States": (0.0, 0.7, 1.0),
         "United Kingdom": (0.6, 0.0, 0.3),
         "All except China": (0.2, 0.2, 0.2)
     }
 
-    if s in fixed_colors:
-        return fixed_colors[s]
+    if name in fixed_colors:
+        return fixed_colors[name]
 
     else:
-        country_hash = hashlib.md5(s.lower().encode()).hexdigest()
         hue = 0
-        sat = 0.9
-        val = 0.9
+        sat = 0.7
+        val = 0.7
 
-        for i, char in enumerate(binascii.unhexlify(country_hash)[offset:offset+3]):
-            if i == 0:
-                hue = char / 255
-            elif i == 1:
-                sat += 0.1 * char / 255
-            elif i == 2:
-                val += 0.1 * char / 255
+        for char in " ().-":
+            name = name.lower().replace(char, "")
+        h = sum([(ord(x) - 97) for x in name]) / 37 % 1
+        s = (ord(name[3]) - 97) / 25
+        v = (ord(name[2]) - 97) / 25
 
-        return colorsys.hsv_to_rgb(hue, sat, val)
+        c = colorsys.hsv_to_rgb(hue + h,
+                                sat + 0.3 * s,
+                                val + 0.3 * v)
+        return c
 
 
 def gauss(n=11,sigma=1):
