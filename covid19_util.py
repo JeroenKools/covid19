@@ -13,7 +13,7 @@ import scipy.stats
 from scipy.signal import gaussian
 
 register_matplotlib_converters()
-light_grey = (.90, .90, .90, 1)  # Plot background color
+light_grey = (.93, .93, .93, 1)  # Plot background color
 matplotlib.rcParams['figure.figsize'] = (14, 8)  # Default size of all figures
 matplotlib.rcParams['axes.facecolor'] = light_grey  # Default background color of all graph areas
 matplotlib.rcParams['figure.facecolor'] = light_grey  # Default background color of all figure borders
@@ -26,8 +26,8 @@ branch = "master"
 base_url = f"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/{branch}/" + \
            "csse_covid_19_data/csse_covid_19_time_series/"
 data_urls = {
-    "confirmed": "time_series_19-covid-Confirmed.csv",
-    "deaths": "time_series_19-covid-Deaths.csv",
+    "confirmed": "time_series_covid19_confirmed_global.csv",
+    "deaths": "time_series_covid19_deaths_global.csv",
     "recovered": "time_series_19-covid-Recovered.csv"
 }
 
@@ -110,8 +110,7 @@ def normalize_to_target_product(dist, target):
 def death_chance_per_day(cfr, mu, sigma, length, do_plot):
     # Approximate survival and death odds
     x = np.arange(length)
-    #death_chance = gaussian(length, sigma)
-    death_chance = scipy.stats.norm.pdf(np.linspace(0, length-1, length ), loc=mu, scale=sigma)
+    death_chance = scipy.stats.gamma.pdf(np.linspace(0, length-1, length), 2.5, loc=mu, scale=sigma)
     death_chance = death_chance / sum(death_chance) * cfr
     survive_chance_per_day = 1 - death_chance
 
@@ -166,6 +165,7 @@ def string_to_color(name, offset=4):
         "Netherlands": (1.0, 0.4, 0.0),
         "United States": (0.0, 0.7, 1.0),
         "United Kingdom": (0.6, 0.0, 0.3),
+        "Spain": (0.9, 1, 0.0),
         "All except China": (0.2, 0.2, 0.2)
     }
 
