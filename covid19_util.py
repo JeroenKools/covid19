@@ -28,7 +28,7 @@ base_url = f"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/{branch}/
 data_urls = {
     "confirmed": "time_series_covid19_confirmed_global.csv",
     "deaths": "time_series_covid19_deaths_global.csv",
-    "recovered": "time_series_19-covid-Recovered.csv"
+    # No longer being updated: "recovered": "time_series_19-covid-Recovered.csv"
 }
 
 continent_codes = {
@@ -107,16 +107,19 @@ def normalize_to_target_product(dist, target):
     return dist
 
 
-def death_chance_per_day(cfr, mu, sigma, length, do_plot):
+def death_chance_per_day(cfr, s=0.9, mu=0, sigma=1, length=20, do_plot=False):
     # Approximate survival and death odds
     x = np.arange(length)
-    death_chance = scipy.stats.gamma.pdf(np.linspace(0, length-1, length), 2.5, loc=mu, scale=sigma)
-    death_chance = death_chance / sum(death_chance) * cfr
-    survive_chance_per_day = 1 - death_chance
+    death_chance = scipy.stats.lognorm.pdf(np.linspace(0, length-1, length), s=s, loc=mu, scale=sigma)
 
     # Approximation is slightly off, compensate
-    survive_chance_per_day = normalize_to_target_product(survive_chance_per_day, 1 - cfr)
-    death_chance = 1 - survive_chance_per_day
+    if cfr > 0:
+        death_chance = death_chance / sum(death_chance) * cfr
+        survive_chance_per_day = 1 - death_chance
+        survive_chance_per_day = normalize_to_target_product(survive_chance_per_day, 1 - cfr)
+        death_chance = 1 - survive_chance_per_day
+    else:
+        survive_chance_per_day = 1 - death_chance
     alive = np.product(survive_chance_per_day)
 
     if do_plot:
