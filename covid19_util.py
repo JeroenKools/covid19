@@ -78,6 +78,14 @@ def kmb_number_format(n, digits=3, as_int=True):
     return f"{truncate(n/div, decimals, as_int)}{suffix}"
 
 
+def set_plot_style():
+    plt.minorticks_off()
+    plt.gca().tick_params(which="major", color=light_grey)
+    for spine in plt.gca().spines.values():
+        spine.set_visible(False)
+    plt.grid(ls=":")
+
+
 # Convenience function for labelling the y-axis
 def set_y_axis_format(ymax, log=True):
     power = int(math.ceil(math.log(ymax) / math.log(10)))
@@ -94,10 +102,7 @@ def set_y_axis_format(ymax, log=True):
     plt.gca().get_yaxis().set_major_formatter(
         matplotlib.ticker.FuncFormatter(lambda x, p: kmb_number_format(x)))
 
-    plt.minorticks_off()
-    plt.gca().tick_params(which="major", color=light_grey)
-    for spine in plt.gca().spines.values():
-        spine.set_visible(False)
+    set_plot_style()
 
 
 def normalize_to_target_product(dist, target):
@@ -129,7 +134,7 @@ def death_chance_per_day(cfr, s=0.9, mu=0, sigma=1, length=20, do_plot=False):
         plt.xlabel("Day")
         plt.ylabel("Chance")
         plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter())
-        plt.grid()
+        set_plot_style()
         plt.show()
 
         plt.plot(x, 100 * np.cumprod(survive_chance_per_day))
@@ -138,7 +143,7 @@ def death_chance_per_day(cfr, s=0.9, mu=0, sigma=1, length=20, do_plot=False):
         plt.ylabel("Chance")
         plt.ylim(0, 102)
         plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter())
-        plt.grid()
+        set_plot_style()
         plt.show()
 
     else:

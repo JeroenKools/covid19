@@ -92,6 +92,7 @@ class Covid19Processing:
                                                   "Korea, South": "South Korea",
                                                   "Taiwan*": "Taiwan",
                                                   "occupied Palestinian territory": "Palestine",
+                                                  "West Bank and Gaza": "Palestine",
                                                   "Bahamas, The": "Bahamas",
                                                   "Cote d'Ivoire": "Ivory Coast",
                                                   "Gambia, The": "Gambia",
@@ -222,7 +223,7 @@ class Covid19Processing:
             denominator = denominator[denominator > min_cases]
             by_country = numerator / denominator
             if use_log_scale:
-                by_country += 0.001
+                by_country += 0.0001
         else:
             print(f"{y_metric}' is an invalid y_metric!")
 
@@ -297,12 +298,12 @@ class Covid19Processing:
             plt.xlim(0, length)
             plt.xlabel("Day Number", fontsize=14)
             if len(ratio_parts) < 2:
-                title = f"COVID-19 {long_y_metric}, from the first day ≥{min_cases}, in selected countries"
+                title = f"COVID-19 {long_y_metric}, from the first day with ≥{min_cases} cases"
             else:
                 title = f"COVID-19 {long_y_metric} ratio in selected countries"
             plt.title(title, fontsize=18)
 
-        plt.legend()
+        plt.legend(frameon=False)
         if y_metric == "growth_factor":
             plt.gca().get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: f"{x:,.2f}"))
         elif len(ratio_parts) > 1:
@@ -315,13 +316,10 @@ class Covid19Processing:
                 pass
         else:
             set_y_axis_format(y_max, use_log_scale)
-        plt.grid()
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
-        plt.gca().tick_params(which="minor", width=0)
         plt.gca().tick_params(which="major", color=light_grey)
-        for spine in plt.gca().spines.values():
-            spine.set_visible(False)
+        set_plot_style()
         plt.show()
 
     def plot_pie(self, y_metrics, mode="country"):
@@ -332,6 +330,7 @@ class Covid19Processing:
             data_for_pie = self.dataframes[short_y + "_by_"+mode].iloc[:, -1]
             data_for_pie = data_for_pie[~data_for_pie.index.isin(["All except China", "World"])]
             data_for_pie = data_for_pie.sort_values(ascending=False).fillna(0)
+            data_for_pie = np.maximum(0, data_for_pie)
             country_names = [x if data_for_pie[x] / data_for_pie.sum() > .015 else "" for x in data_for_pie.index]
             data_for_pie.plot.pie(startangle=270, autopct=get_pie_label, labels=country_names,
                                   counterclock=False, pctdistance=.75,
@@ -371,7 +370,6 @@ class Covid19Processing:
             plt.plot(model_date_list[-days+1:], np.round(logistic)[-days+1:],
                      label=f"{L:.0f} / (1 + e^(-{k:.3f} * (x - {x0:.1f})))", zorder=1)
 
-            plt.grid()
             plt.legend(loc="upper left")
             plt.title(f"Logistic curve fit and extrapolation for {country}", fontsize=18)
             plt.xlabel("Date", fontsize=14)
@@ -393,6 +391,7 @@ class Covid19Processing:
                 spine.set_visible(False)
             bottom, top = plt.ylim()
             plt.ylim((bottom, max(bottom+1, top)))
+            set_plot_style()
             plt.show()
 
     def simulate_country_history(self, country, history_length=31, show_result=False):
@@ -457,7 +456,7 @@ class Covid19Processing:
                                      np.linspace(0, 1, len(mitigation_trend)),
                                      mitigation_trend)
 
-        daily_death_chance = death_chance_per_day(cfr, 0.8, 6.5, sigma_death_days, history_length, do_plot=False)
+        daily_death_chance = death_chance_per_day(cfr, 0.8, 3.5, sigma_death_days, history_length, do_plot=False)
 
         # https://www.jwatch.org/na51083/2020/03/13/covid-19-incubation-period-update
         # https://www.medrxiv.org/content/10.1101/2020.03.05.20030502v1.full.pdf
@@ -527,18 +526,17 @@ class Covid19Processing:
             short_metric = metric.split()[0]
             plt.plot(simulation.loc[:today, short_metric], c=cm.colors[i], label=f"{metric.capitalize()}")
             plt.plot(simulation.loc[today:, short_metric], "-.", c=cm.colors[i], alpha=0.75)
-            plt.grid()
         plt.plot(simulation.loc[today - pd.DateOffset(1):, "confirmed"].diff(), "-.", c=cm.colors[i + 1], alpha=0.75)
         plt.plot(simulation.loc[:today, "confirmed"].diff(), c=cm.colors[i+1], label="Daily new cases")
         plt.legend(loc="upper left")
 
         set_y_axis_format(simulation.loc[:, "confirmed"].max().max(), log=use_log_scale)
-        title = f"Covid-19 simulation for {country} for the next {days} days"
+        title = f"{days}-day Covid-19 simulation, {country}"
         if scenario_name:
-            title += ": " + scenario_name + " scenario"
+            title += ": " + scenario_name
         plt.suptitle(title, fontsize=20, y=1.03)
         plt.tight_layout()
-        plt.grid()
+        set_plot_style()
         plt.show()
         simulation = simulation.astype(int)
         display(Markdown(f"### {scenario_name} final tally:"))
@@ -563,7 +561,7 @@ class Covid19Processing:
             plt.plot(country_data.index, data, label=metric.capitalize().replace("_", " "))
 
         plt.title(f"{country} daily changes as of {country_data.index[-1].date()}", fontsize=20)
-        plt.grid()
+        set_plot_style()
         plt.legend()
         set_y_axis_format(country_data[metrics].max().max(), log=True)
         plt.show()
