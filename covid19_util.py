@@ -115,7 +115,7 @@ def normalize_to_target_product(dist, target):
 def death_chance_per_day(cfr, s=0.9, mu=0, sigma=1, length=20, do_plot=False):
     # Approximate survival and death odds
     x = np.arange(length)
-    death_chance = scipy.stats.lognorm.pdf(np.linspace(0, length-1, length), s=s, loc=mu, scale=sigma)
+    death_chance = scipy.stats.weibull_min.pdf(np.linspace(0, length-1, length), c=s, loc=mu, scale=sigma)
 
     # Approximation is slightly off, compensate
     if cfr > 0:

@@ -194,7 +194,7 @@ class Covid19Processing:
             "deaths": "Deaths",
             "active": "Active cases",
             "growth_factor": f"{sigma}-day avg growth factor",
-            "deaths/confirmed": "Case Fatality Rate"
+            "deaths/confirmed": "Case fatality"
         }
         fills = ["none", "full"]  # alternate between filled and empty markers
         length = None
@@ -249,6 +249,7 @@ class Covid19Processing:
             is_valid = sum(np.nan_to_num(country_data)) > 0
 
             if x_metric == "calendar_date" and is_valid:
+                dates = [datetime.datetime.strftime(x, '%m/%d') for x in country_data.index]
                 plt.plot(country_data, marker=markers[i % m], label=country,
                          markersize=6, color=color, alpha=1, fillstyle=fill)
 
@@ -287,7 +288,10 @@ class Covid19Processing:
             plt.ylim(0.9 * use_log_scale,
                      by_country.loc[countries_to_plot].max().max() * (2 - 0.9 * (not use_log_scale)))
             firstweekday = pd.Timestamp(country_data.index[0]).dayofweek
-            plt.gca().xaxis.set_major_locator(mdates.WeekdayLocator(interval=1, byweekday=firstweekday))
+            n_days = (country_data.index.max() - country_data.index.min()).days + 1
+            n_weeks = n_days//5
+            plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%m/%d/%Y'))
+            plt.gca().xaxis.set_major_locator(mdates.WeekdayLocator(interval=n_weeks//7, byweekday=firstweekday))
         elif x_metric == "day_number":
             if y_metric != "growth_factor" and len(ratio_parts) < 2:
                 floor = 10 ** math.floor(math.log(min_cases) / math.log(10))
@@ -394,7 +398,7 @@ class Covid19Processing:
             set_plot_style()
             plt.show()
 
-    def simulate_country_history(self, country, history_length=31, show_result=False):
+    def simulate_country_history(self, country, history_length=30, show_result=False):
         if country in self.country_metadata:
             population = self.country_metadata[country]["population"]
         else:
@@ -407,7 +411,7 @@ class Covid19Processing:
         simulation = pd.DataFrame(data=[confirmed, deaths, recovered, active, uninfected],
                                   index=["confirmed", "deaths", "recovered", "active", "uninfected"]).transpose()
         simulation = simulation.fillna(0)
-        daily_death_distribution = death_chance_per_day(cfr=0, s=0.8, mu=6.5, sigma=6, length=history_length)
+        daily_death_distribution = death_chance_per_day(cfr=0.04, s=1.75, mu=0.5, sigma=10, length=history_length)
 
         # reconstruct recovered and active case durations using fatality by case duration stats
         for i, day in enumerate(confirmed.index):
@@ -434,8 +438,8 @@ class Covid19Processing:
 
         simulation = simulation.fillna(0).astype(int)
         if show_result:
-            display(Markdown("<br>**First 10 days in the US, showing a 7-day case duration history:**"))
-            display(simulation.iloc[:10, :])
+            display(Markdown(f"<br>**Last 10 days in {country}, showing a 7-day case duration history:**"))
+            display(simulation.iloc[-10:, :])
         return simulation
 
     def simulate_country(
@@ -456,7 +460,7 @@ class Covid19Processing:
                                      np.linspace(0, 1, len(mitigation_trend)),
                                      mitigation_trend)
 
-        daily_death_chance = death_chance_per_day(cfr, 0.8, 3.5, sigma_death_days, history_length, do_plot=False)
+        daily_death_chance = death_chance_per_day(cfr, 1.75, 0.5, sigma_death_days, history_length, do_plot=False)
 
         # https://www.jwatch.org/na51083/2020/03/13/covid-19-incubation-period-update
         # https://www.medrxiv.org/content/10.1101/2020.03.05.20030502v1.full.pdf
