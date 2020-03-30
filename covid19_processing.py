@@ -399,7 +399,7 @@ class Covid19Processing:
             set_plot_style()
             plt.show()
 
-    def simulate_country_history(self, country, history_length=30, show_result=False):
+    def simulate_country_history(self, country, history_length=40, show_result=False):
         if country in self.country_metadata:
             population = self.country_metadata[country]["population"]
         else:
@@ -448,7 +448,7 @@ class Covid19Processing:
             country,                 # name of the country to simulate
             days=30,                 # how many days into the future to simulate
             cfr=0.03,                # case fatality rate, 0 to 1
-            critical_rate=0.12,      # https://jamanetwork.com/journals/jama/fullarticle/2763188, https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm
+            critical_rate=0.18,      # https://jamanetwork.com/journals/jama/fullarticle/2763188, https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm
             cfr_without_icu=0.80,    # unknown but high
             icu_beds_per_100k=30,    # https://www.forbes.com/sites/niallmccarthy/2020/03/12/the-countries-with-the-most-critical-care-beds-per-capita-infographic
             icu_availability=0.2,    #
@@ -509,7 +509,7 @@ class Covid19Processing:
                 # critical_patients_no_icu = max(0, critical_patients - available_icu_beds)
                 non_icu_patients = cases  # - critical_patients
 
-                deaths_for_case_duration = np.random.binomial(non_icu_patients +  # critical_patients_in_icu,
+                deaths_for_case_duration = np.random.binomial(non_icu_patients,  # + critical_patients_in_icu,
                                                               daily_death_chance[case_duration])
 
                 # deaths_for_case_duration += np.random.binomial(critical_patients_no_icu,
@@ -544,14 +544,14 @@ class Covid19Processing:
 
         plt.figure(figsize=(13, 8))
         metrics = ["confirmed cases", "deaths", "active cases", "recovered cases"]
-        cm = plt.cm.get_cmap("tab10")
+        c = ["tab:blue", "r", "tab:orange", "limegreen", "tab:purple"]
 
         for i, metric in enumerate(metrics):
             short_metric = metric.split()[0]
-            plt.plot(simulation.loc[:today, short_metric], c=cm.colors[i], label=f"{metric.capitalize()}")
-            plt.plot(simulation.loc[today:, short_metric], "-.", c=cm.colors[i], alpha=0.75)
-        plt.plot(simulation.loc[today - pd.DateOffset(1):, "confirmed"].diff(), "-.", c=cm.colors[i + 1], alpha=0.75)
-        plt.plot(simulation.loc[:today, "confirmed"].diff(), c=cm.colors[i+1], label="Daily new cases")
+            plt.plot(simulation.loc[:today, short_metric], c=c[i], label=f"{metric.capitalize()}")
+            plt.plot(simulation.loc[today:, short_metric], "-.", c=c[i], alpha=0.75)
+        plt.plot(simulation.loc[today - pd.DateOffset(1):, "confirmed"].diff(), "-.", c=c[i + 1], alpha=0.75)
+        plt.plot(simulation.loc[:today, "confirmed"].diff(), c=c[-1], label="Daily new cases")
         plt.legend(loc="upper left")
 
         set_y_axis_format(simulation.loc[:, "confirmed"].max().max(), log=use_log_scale)

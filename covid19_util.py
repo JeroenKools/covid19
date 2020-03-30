@@ -10,7 +10,6 @@ import matplotlib.ticker as mtick
 from IPython.display import display, Markdown
 import numpy as np
 import scipy.stats
-from scipy.signal import gaussian
 
 register_matplotlib_converters()
 light_grey = (.93, .93, .93, 1)  # Plot background color
