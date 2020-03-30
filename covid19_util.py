@@ -108,13 +108,11 @@ def set_y_axis_format(ymax, log=True):
 def normalize_to_target_product(dist, target):
     ratio = np.product(dist) / target
     ratio = ratio ** (1 / len(dist))
-    dist = dist / ratio
-    return dist
+    return dist / ratio
 
 
 def death_chance_per_day(cfr, s=0.9, mu=0, sigma=1, length=20, do_plot=False):
     # Approximate survival and death odds
-    x = np.arange(length)
     death_chance = scipy.stats.weibull_min.pdf(np.linspace(0, length-1, length), c=s, loc=mu, scale=sigma)
 
     # Approximation is slightly off, compensate
@@ -128,8 +126,8 @@ def death_chance_per_day(cfr, s=0.9, mu=0, sigma=1, length=20, do_plot=False):
     alive = np.product(survive_chance_per_day)
 
     if do_plot:
-        display(Markdown(f"Input CFR: {cfr:.2%}. Model result: {alive:.2%} of being alive after {len(x)} days"))
-        plt.plot(x, 100 * death_chance)
+        display(Markdown(f"Input CFR: {cfr:.2%}. Model result: {alive:.2%} of being alive after {length} days"))
+        plt.plot(100 * death_chance)
         plt.title("Modelled daily fatality rate, if infected with Covid-19", fontsize=16)
         plt.xlabel("Day")
         plt.ylabel("Chance")
@@ -137,7 +135,7 @@ def death_chance_per_day(cfr, s=0.9, mu=0, sigma=1, length=20, do_plot=False):
         set_plot_style()
         plt.show()
 
-        plt.plot(x, 100 * np.cumprod(survive_chance_per_day))
+        plt.plot(100 * np.cumprod(survive_chance_per_day))
         plt.title("Modelled survival probability, n days after contracting Covid-19", fontsize=16)
         plt.xlabel("Day")
         plt.ylabel("Chance")
@@ -183,7 +181,7 @@ def string_to_color(name, offset=4):
     else:
         hue = 0
         sat = 0.7
-        val = 0.7
+        val = 0.85
 
         for char in " ().-":
             name = name.lower().replace(char, "")
@@ -193,7 +191,7 @@ def string_to_color(name, offset=4):
 
         c = colorsys.hsv_to_rgb(hue + h,
                                 sat + 0.3 * s,
-                                val + 0.3 * v)
+                                val + 0.15 * v)
         return c
 
 

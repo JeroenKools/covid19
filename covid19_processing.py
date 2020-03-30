@@ -194,7 +194,8 @@ class Covid19Processing:
             "deaths": "Deaths",
             "active": "Active cases",
             "growth_factor": f"{sigma}-day avg growth factor",
-            "deaths/confirmed": "Case fatality"
+            "deaths/confirmed": "Case fatality",
+            "new confirmed": "Daily new cases"
         }
         fills = ["none", "full"]  # alternate between filled and empty markers
         length = None
@@ -444,23 +445,30 @@ class Covid19Processing:
 
     def simulate_country(
             self,
-            country,  # name of the country to simulate
-            days=30,  # how many days into the future to simulate
-            cfr=0.03,  # case fatality rate, 0 to 1
-            history_length=28,   # Length of case history
-            sigma_death_days=6,  # Standard deviation in mortality over time distribution
+            country,                 # name of the country to simulate
+            days=30,                 # how many days into the future to simulate
+            cfr=0.03,                # case fatality rate, 0 to 1
+            critical_rate=0.12,      # https://jamanetwork.com/journals/jama/fullarticle/2763188, https://www.cdc.gov/mmwr/volumes/69/wr/mm6912e2.htm
+            cfr_without_icu=0.80,    # unknown but high
+            icu_beds_per_100k=30,    # https://www.forbes.com/sites/niallmccarthy/2020/03/12/the-countries-with-the-most-critical-care-beds-per-capita-infographic
+            icu_availability=0.2,    #
+            history_length=28,       # Length of case history
+            sigma_death_days=6,      # Standard deviation in mortality over time distribution
             r0=2.5,
             mitigation_trend=(1.0, 0.5)  # Mitigation factor development over time. This will be linearly
                                          # interpolated to a vector of length {days}
     ):
         population = self.country_metadata[country]["population"]
         country_history = self.simulate_country_history(country, history_length)
+        available_icu_beds = int(population/100000 * icu_beds_per_100k * icu_availability)
 
         daily_mitigation = np.interp(np.linspace(0, 1, days),
                                      np.linspace(0, 1, len(mitigation_trend)),
                                      mitigation_trend)
 
         daily_death_chance = death_chance_per_day(cfr, 1.75, 0.5, sigma_death_days, history_length, do_plot=False)
+        #  daily_death_chance_no_icu = death_chance_per_day(cfr_without_icu, 1.75, 0.5,
+        #                                                sigma_death_days, history_length, do_plot=False)
 
         # https://www.jwatch.org/na51083/2020/03/13/covid-19-incubation-period-update
         # https://www.medrxiv.org/content/10.1101/2020.03.05.20030502v1.full.pdf
@@ -490,11 +498,23 @@ class Covid19Processing:
                 new_cases_for_case_duration = np.random.binomial(case_history[case_duration],
                                                                  r_eff*daily_transmission_chance[case_duration])
                 new_cases += int(round(new_cases_for_case_duration))
+
             # Deaths
             new_deaths = 0
             for case_duration in range(history_length):
-                deaths_for_case_duration = np.random.binomial(case_history[case_duration],
+                cases = case_history[case_duration]
+                # TODO: assign patients to mild or critical only once
+                # critical_patients = (critical_rate * cases).round()
+                # critical_patients_in_icu = min(available_icu_beds, critical_patients)
+                # critical_patients_no_icu = max(0, critical_patients - available_icu_beds)
+                non_icu_patients = cases  # - critical_patients
+
+                deaths_for_case_duration = np.random.binomial(non_icu_patients +  # critical_patients_in_icu,
                                                               daily_death_chance[case_duration])
+
+                # deaths_for_case_duration += np.random.binomial(critical_patients_no_icu,
+                #                                              daily_death_chance_no_icu[case_duration])
+
                 case_history[case_duration] -= deaths_for_case_duration
                 new_deaths += deaths_for_case_duration
 
