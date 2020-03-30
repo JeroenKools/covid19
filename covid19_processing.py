@@ -156,7 +156,7 @@ class Covid19Processing:
                 k = k[:18].strip() + "."
             print(f"{k:20}", end=" " if (i + 1) % columns else "\n")  # Every 5 items, end with a newline
 
-    def get_country_data(self, metric):
+    def get_metric_data(self, metric):
         if metric+"_by_country" in self.dataframes:
             return pd.concat([self.dataframes[metric + "_by_country"], self.dataframes[metric + "_by_continent"]])
         elif metric.startswith("new") and metric.split(" ")[1] in self.dataframes:
@@ -165,11 +165,21 @@ class Covid19Processing:
                               self.dataframes[metric + "_by_continent"].diff(axis="columns")]
                              )
         else:
-            return None
+            return
+
+    def get_country_data(self, country):
+        data = {}
+        for metric in self.dataframes.keys():
+            if not metric.endswith("by_country"):
+                continue
+            series = self.dataframes[metric].loc[country, :]
+            series.name = metric
+            data[metric] = series
+        return pd.DataFrame(data)
 
     def get_new_cases_details(self, country, avg_n=5, median_n=3):
-        confirmed = self.get_country_data("confirmed").loc[country]
-        deaths = self.get_country_data("deaths").loc[country]
+        confirmed = self.get_metric_data("confirmed").loc[country]
+        deaths = self.get_metric_data("deaths").loc[country]
         df = pd.DataFrame(confirmed)
         df = df.rename(columns={country: "confirmed_cases"})
         df.loc[:, "new_cases"] = np.maximum(0, confirmed.diff())
@@ -207,19 +217,19 @@ class Covid19Processing:
         y_max = 0
         ratio_parts = y_metric.split("/")
 
-        if self.get_country_data(y_metric) is not None:
-            by_country = self.get_country_data(y_metric)
+        if self.get_metric_data(y_metric) is not None:
+            by_country = self.get_metric_data(y_metric)
         elif y_metric == "growth_factor":
-            by_country = self.get_country_data("confirmed")
+            by_country = self.get_metric_data("confirmed")
         elif y_metric == "active":
-            by_country = self.get_country_data("confirmed") - \
-                         self.get_country_data("deaths") - \
-                         self.get_country_data("recovered")
+            by_country = self.get_metric_data("confirmed") - \
+                         self.get_metric_data("deaths") - \
+                         self.get_metric_data("recovered")
             by_country = by_country.dropna("columns").astype(int)
-        elif len(ratio_parts) == 2 and self.get_country_data(ratio_parts[0]) is not None\
-                and self.get_country_data(ratio_parts[1]) is not None:
-            denominator = self.get_country_data(ratio_parts[1])
-            numerator = self.get_country_data(ratio_parts[0])
+        elif len(ratio_parts) == 2 and self.get_metric_data(ratio_parts[0]) is not None\
+                and self.get_metric_data(ratio_parts[1]) is not None:
+            denominator = self.get_metric_data(ratio_parts[1])
+            numerator = self.get_metric_data(ratio_parts[0])
             numerator = numerator[denominator > min_cases]
             denominator = denominator[denominator > min_cases]
             by_country = numerator / denominator
@@ -347,7 +357,7 @@ class Covid19Processing:
         plt.show()
 
     def curve_fit(self, country="All except China", days=100, do_plot=True):
-        country_data = self.get_country_data("confirmed").loc[country, :]
+        country_data = self.get_metric_data("confirmed").loc[country, :]
         country_data = country_data[np.isfinite(country_data)]
         x = np.arange(days + len(country_data))
         current_day = country_data.index[-1]
@@ -455,11 +465,15 @@ class Covid19Processing:
             history_length=28,       # Length of case history
             sigma_death_days=6,      # Standard deviation in mortality over time distribution
             r0=2.5,
-            mitigation_trend=(1.0, 0.5)  # Mitigation factor development over time. This will be linearly
-                                         # interpolated to a vector of length {days}
+            mitigation_trend=(1.0, 0.5), # Mitigation factor development over time. This will be linearly
+                                         # interpolated to a vector of length {days},
+            from_day=-1
     ):
         population = self.country_metadata[country]["population"]
         country_history = self.simulate_country_history(country, history_length)
+        if from_day != -1:
+            country_history = country_history[country_history.confirmed > 0]
+            country_history = country_history.iloc[:from_day+1, :]
         available_icu_beds = int(population/100000 * icu_beds_per_100k * icu_availability)
 
         daily_mitigation = np.interp(np.linspace(0, 1, days),
@@ -473,7 +487,7 @@ class Covid19Processing:
         # https://www.jwatch.org/na51083/2020/03/13/covid-19-incubation-period-update
         # https://www.medrxiv.org/content/10.1101/2020.03.05.20030502v1.full.pdf
         daily_transmission_chance = scipy.stats.norm.pdf(np.linspace(0, history_length, history_length+1),
-                                                         loc=5.5, scale=1.6)
+                                                         loc=4.5, scale=1.6)
         today = country_history.index[-1]
 
         for d in range(days):
@@ -535,12 +549,13 @@ class Covid19Processing:
         return country_history, today
 
     def plot_simulation(self, country, days, mitigation_trend, cfr=0.02, r0=2.5,
-                        history_length=21, use_log_scale=True, scenario_name=""):
+                        history_length=30, use_log_scale=True, scenario_name="", from_day=-1):
 
         simulation, today = self.simulate_country(country=country, days=days, cfr=cfr,
                                                   mitigation_trend=mitigation_trend,
                                                   r0=r0,
-                                                  history_length=history_length)
+                                                  history_length=history_length,
+                                                  from_day=from_day)
 
         plt.figure(figsize=(13, 8))
         metrics = ["confirmed cases", "deaths", "active cases", "recovered cases"]
