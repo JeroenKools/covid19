@@ -141,6 +141,23 @@ class Covid19Processing:
             by_continent = by_continent
             self.dataframes[metric + "_by_continent"] = by_continent.fillna(0).astype(int)
 
+        # Add population for special regions and continents
+        continent_pop = {}
+        for country in by_country.index:
+            if country in self.country_metadata:
+                continent = self.country_metadata[country]["continent"]
+                pop = self.country_metadata[country]["population"]
+                if continent in continent_pop:
+                    continent_pop[continent] += pop
+                else:
+                    continent_pop[continent] = pop
+        continent_pop["World"] = sum(continent_pop.values())
+        continent_pop["All except China"] = continent_pop["World"] - self.country_metadata["China"]["population"]
+        for c in continent_pop:
+            if c not in self.country_metadata:
+                self.country_metadata[c] = {}
+            self.country_metadata[c]["population"] = continent_pop[c]
+
         with pd.option_context("display.max_rows", rows, "display.min_rows", rows, "display.max_columns", 10):
             display(Markdown("### Table of confirmed cases by country"))
             display(self.dataframes["confirmed_by_country"])
@@ -164,6 +181,13 @@ class Covid19Processing:
             return pd.concat([self.dataframes[metric + "_by_country"].diff(axis="columns"),
                               self.dataframes[metric + "_by_continent"].diff(axis="columns")]
                              )
+        elif metric in self.country_metadata["China"]:
+            all_regions = self.dataframes["confirmed_by_country"].index.tolist() +\
+                           self.dataframes["confirmed_by_continent"].index.tolist()
+            s = pd.Series(
+                {country: self.country_metadata[country][metric] for country in self.country_metadata}, name=metric)
+            s = s[s.index.isin(all_regions)]  # Remove countries not in JHU data
+            return s.round()
         else:
             return
 
@@ -205,7 +229,10 @@ class Covid19Processing:
             "active": "Active cases",
             "growth_factor": f"{sigma}-day avg growth factor",
             "deaths/confirmed": "Case fatality",
-            "new confirmed": "Daily new cases"
+            "new confirmed": "Daily new cases",
+            "confirmed/population": "Confirmed cases per million population",
+            "active/population": "Active cases per million population",
+            "deaths/population": "Deaths per million population"
         }
         fills = ["none", "full"]  # alternate between filled and empty markers
         length = None
@@ -228,13 +255,19 @@ class Covid19Processing:
             by_country = by_country.dropna("columns").astype(int)
         elif len(ratio_parts) == 2 and self.get_metric_data(ratio_parts[0]) is not None\
                 and self.get_metric_data(ratio_parts[1]) is not None:
-            denominator = self.get_metric_data(ratio_parts[1])
             numerator = self.get_metric_data(ratio_parts[0])
-            numerator = numerator[denominator > min_cases]
-            denominator = denominator[denominator > min_cases]
-            by_country = numerator / denominator
+            denominator = self.get_metric_data(ratio_parts[1])
+            numerator = numerator.loc[denominator.index, :]
+            if ratio_parts[1] != "population":
+                numerator = numerator[denominator > min_cases]
+                denominator = denominator[denominator > min_cases]
+
+            by_country = numerator.divide(denominator, 0)  # numerator / denominator
+            if ratio_parts[1] == "population":
+                by_country *= 1e6
+
             if use_log_scale:
-                by_country += 0.0001
+                by_country[by_country == 0] = np.nan
         else:
             print(f"{y_metric}' is an invalid y_metric!")
 
@@ -257,10 +290,9 @@ class Covid19Processing:
                 if x_metric == "day_number":
                     df = df[df.iloc[:, 0] >= min_cases]
                 country_data = df.filtered_growth_factor
-            is_valid = sum(np.nan_to_num(country_data)) > 0
+            is_valid = sum(np.nan_to_num(country_data.astype(np.float32))) > 0
 
             if x_metric == "calendar_date" and is_valid:
-                dates = [datetime.datetime.strftime(x, '%m/%d') for x in country_data.index]
                 plt.plot(country_data, marker=markers[i % m], label=country,
                          markersize=6, color=color, alpha=1, fillstyle=fill)
 
@@ -287,18 +319,12 @@ class Covid19Processing:
         plt.ylabel(long_y_metric, fontsize=14)
         if x_metric == "calendar_date":
             plt.xlabel("Date", fontsize=14)
-            if countries_to_plot[0] in self.dataframes["confirmed_by_country"].index:
-                title = f"COVID-19 {long_y_metric} over time"
-                if len(countries_to_plot) > 1:
-                    title += " in selected countries"
-                else:
-                    title += f" in {countries_to_plot[0]}"
-            else:
-                title = f"COVID-19 {long_y_metric} over time by continent"
+            title = f"COVID-19 {long_y_metric}"
             plt.title(title, fontsize=18)
-            plt.ylim(0.9 * use_log_scale,
-                     by_country.loc[countries_to_plot].max().max() * (2 - 0.9 * (not use_log_scale)))
-            firstweekday = pd.Timestamp(country_data.index[0]).dayofweek
+            if not ratio_parts[-1] == "population":
+                plt.ylim(0.9 * use_log_scale,
+                         by_country.loc[countries_to_plot].max().max() * (2 - 0.9 * (not use_log_scale)))
+            firstweekday = pd.Timestamp(by_country.iloc[0].index[0]).dayofweek
             n_days = (country_data.index.max() - country_data.index.min()).days + 1
             n_weeks = n_days//5
             plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%m/%d/%Y'))
@@ -321,6 +347,8 @@ class Covid19Processing:
         plt.legend(frameon=False)
         if y_metric == "growth_factor":
             plt.gca().get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: f"{x:,.2f}"))
+        elif ratio_parts[-1] == "population":
+            pass
         elif len(ratio_parts) > 1:
             plt.gca().get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: f"{x:.1%}"))
             if use_log_scale:
@@ -593,7 +621,7 @@ class Covid19Processing:
     def country_highlight(self, country):
         metrics = ["new_cases", "new_deaths"]
         country_data = self.get_new_cases_details(country).round(2)[metrics]
-        display(country_data.tail(7))
+        display(country_data.tail(7).astype(int))
 
         for metric in metrics:
             data = country_data[metric]
