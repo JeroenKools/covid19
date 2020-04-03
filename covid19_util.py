@@ -92,9 +92,9 @@ def set_y_axis_format(ymax, log=True):
         ceil = 1.03 * 10 ** power
     else:
         ceil = 1.03 * 10 ** (power - 0.30103)
-    plt.ylim(0.98, ceil)
 
     if log:
+        plt.ylim(0.98, ceil)
         plt.yscale("log", basey=10)
         plt.yticks([float(10 ** x) for x in range(0, power + 1)])
 

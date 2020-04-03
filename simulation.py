@@ -1,3 +1,5 @@
+# currently unused
+
 from covid19_util import *
 
 from scipy import stats
