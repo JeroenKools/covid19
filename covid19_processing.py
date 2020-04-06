@@ -278,7 +278,7 @@ class Covid19Processing:
                 raise KeyError(f"Country '{country}' not found for {y_metric}!")
                 return
 
-            fill = fills[i % (2 * m) < m]
+            marker_fill = fills[i % (2 * m) < m]
 
             if fixed_country_colors:
                 color = string_to_color(country)
@@ -290,21 +290,19 @@ class Covid19Processing:
                 if x_metric == "day_number":
                     df = df[df.iloc[:, 0] >= min_cases]
                 country_data = df.filtered_growth_factor
-            is_valid = sum(np.nan_to_num(country_data.astype(np.float32))) > 0
 
-            if x_metric == "calendar_date" and is_valid:
-                plt.plot(country_data, marker=markers[i % m], label=country,
-                         markersize=6, color=color, alpha=1, fillstyle=fill)
+            if x_metric == "calendar_date":
+                x_data = country_data.index
 
             elif x_metric == "day_number":
                 if y_metric != "growth_factor" and len(ratio_parts) < 2:
                     country_data = country_data[country_data >= min_cases]
                 if country == "Outside China":
                     length = len(country_data)
-                day_nr = list(range(len(country_data)))
-                if is_valid:
-                    plt.plot(day_nr, country_data, marker=markers[i % m], label=country,
-                             markersize=6, color=color, alpha=1, fillstyle=fill)
+                x_data = list(range(len(country_data)))
+
+            plt.plot(x_data, country_data, marker=markers[i % m], label=country,
+                     markersize=6, color=color, alpha=0.8, fillstyle=marker_fill)
 
             if country_data.max() is not np.nan:
                 mx = country_data.max()
@@ -354,7 +352,6 @@ class Covid19Processing:
             if use_log_scale:
                 plt.yscale("log")
                 plt.gca().get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: f"{x:.3f}"))
-                # plt.ylim((0.001, 0.12))
             else:
                 pass
         else:
