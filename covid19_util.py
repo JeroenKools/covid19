@@ -168,6 +168,8 @@ def get_pie_label(pct):
 def string_to_color(name, offset=4):
     fixed_colors = {
         "Netherlands": (1.0, 0.4, 0.0),
+        "Germany": (0, 0.5, 0.7),
+        "Italy": (0.2, 0.6, 0.1),
         "United States": (0.0, 0.7, 1.0),
         "United Kingdom": (0.6, 0.0, 0.3),
         "Spain": (0.9, 1, 0.0),
