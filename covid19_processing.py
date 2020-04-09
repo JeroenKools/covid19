@@ -1,6 +1,7 @@
 from covid19_util import *
 
 from matplotlib import dates as mdates
+from matplotlib import colors as mcolors
 import pandas as pd
 import requests
 import scipy.optimize
@@ -284,6 +285,10 @@ class Covid19Processing:
                 color = string_to_color(country)
             else:
                 color = scalar_map.to_rgba(i % n_colors)
+                hsv = mcolors.rgb_to_hsv(color[:3])
+                if 0.10 <= hsv[0] < 0.35:
+                    hsv[2] -= 0.20
+                    color = mcolors.hsv_to_rgb(hsv)
 
             if y_metric == "growth_factor":
                 df = self.get_new_cases_details(country, sigma)
