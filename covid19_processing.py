@@ -286,8 +286,9 @@ class Covid19Processing:
             else:
                 color = scalar_map.to_rgba(i % n_colors)
                 hsv = mcolors.rgb_to_hsv(color[:3])
-                if 0.10 <= hsv[0] < 0.35:
-                    hsv[2] -= 0.20
+                if 0.12 <= hsv[0] < 0.25:
+                    hsv[0] -= 0.02
+                    hsv[2] = min(hsv[2] - 0.02, 1)
                     color = mcolors.hsv_to_rgb(hsv)
 
             if y_metric == "growth_factor":
@@ -631,6 +632,6 @@ class Covid19Processing:
 
         plt.title(f"{country} daily changes as of {country_data.index[-1].date()}", fontsize=20)
         set_plot_style()
-        plt.legend()
+        plt.legend(loc="upper left")
         set_y_axis_format(country_data[metrics].max().max(), log=True)
         plt.show()

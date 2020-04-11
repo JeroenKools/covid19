@@ -11,12 +11,12 @@ from IPython.display import display, Markdown
 import numpy as np
 import scipy.stats
 
-register_matplotlib_converters()
-light_grey = (.93, .93, .93, 1)  # Plot background color
-matplotlib.rcParams['figure.figsize'] = (14, 8)  # Default size of all figures
-matplotlib.rcParams['axes.facecolor'] = light_grey  # Default background color of all graph areas
+register_matplotlib_converters()                      # For formatting pandas dates
+light_grey = (.95, .95, .95, 1)                       # Plot background color
+matplotlib.rcParams['figure.figsize'] = (14, 8)       # Default size of all figures
+matplotlib.rcParams['axes.facecolor'] = light_grey    # Default background color of all graph areas
 matplotlib.rcParams['figure.facecolor'] = light_grey  # Default background color of all figure borders
-cm = plt.cm.get_cmap('nipy_spectral')  # This colormap is used for the colors of the plot lines
+cm = plt.cm.get_cmap('nipy_spectral')                 # This colormap is used for the colors of the plot lines
 
 # Where to get the data. There have been some issues with the data quality lately. 
 # For the most recent data, use branch 'master'.
@@ -196,7 +196,7 @@ def string_to_color(name, offset=4):
         return c
 
 
-def gauss(n=11,sigma=1):
+def gauss(n=11, sigma=1):
     r = range(-int(n/2), int(n/2)+1)
     return [1 / (sigma * math.sqrt(2*math.pi)) * math.exp(-float(x)**2/(2*sigma**2)) for x in r]
 
