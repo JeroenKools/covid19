@@ -82,6 +82,10 @@ class Covid19Processing:
                 # I assume that the 45 is incorrect. Replace with 23.5, halfway between the values for 2/5 and 2/7
                 by_country.loc["Japan", pd.to_datetime("2/06/20")] = 23.5
 
+                # Correct a typo in US data, see https://github.com/CSSEGISandData/COVID-19/issues/2167
+                if by_country.loc["US", pd.to_datetime("4/13/20")] == 682619:
+                    by_country.loc["US", pd.to_datetime("4/13/20")] -= 102000
+
             # Change some weird formal names to more commonly used ones
             by_country = by_country.rename(index={"Republic of Korea": "South Korea",
                                                   "Holy See": "Vatican City",
@@ -209,7 +213,7 @@ class Covid19Processing:
         df = df.rename(columns={country: "confirmed_cases"})
         df.loc[:, "new_cases"] = np.maximum(0, confirmed.diff())
         df.loc[:, "new_deaths"] = np.maximum(0, deaths.diff())
-        df = df.loc[df.new_cases > 1, :]
+        df = df.fillna(0)
         df.loc[:, "growth_factor"] = df.new_cases.diff() / df.new_cases.shift(1) + 1
         df[~np.isfinite(df)] = np.nan
         df.loc[:, "filtered_new_cases"] = \
