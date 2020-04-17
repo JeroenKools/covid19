@@ -420,7 +420,7 @@ class Covid19Processing:
             plt.plot(model_date_list[-days+1:], np.round(logistic)[-days+1:],
                      label=f"{L:.0f} / (1 + e^(-{k:.3f} * (x - {x0:.1f})))", zorder=1)
 
-            plt.legend(loc="upper left")
+            plt.legend(loc="lower right")
             plt.title(f"Logistic curve fit and extrapolation for {country}", fontsize=18)
             plt.xlabel("Date", fontsize=14)
             plt.ylabel("Cases", fontsize=14)
