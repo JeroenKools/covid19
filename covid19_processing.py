@@ -113,12 +113,9 @@ class Covid19Processing:
         self.dataframes["recovered_by_country"] = pd.DataFrame(columns=self.dataframes["confirmed_by_country"].columns)
         self.dataframes["active_by_country"] = pd.DataFrame(columns=self.dataframes["confirmed_by_country"].columns)
         for country in self.dataframes["confirmed_by_country"].index:
-            self.dataframes["recovered_by_country"].loc[country, :] =\
-                self.simulate_country_history(country).recovered
-            self.dataframes["active_by_country"].loc[country, :] = \
-                self.dataframes["confirmed_by_country"].loc[country] - \
-                self.dataframes["deaths_by_country"].loc[country] - \
-                self.dataframes["recovered_by_country"].loc[country]
+            simulation = self.simulate_country_history(country, history_length=40)
+            self.dataframes["recovered_by_country"].loc[country, :] = simulation.recovered
+            self.dataframes["active_by_country"].loc[country, :] = simulation.active
 
         # Add in continents
         for metric in list(data_urls.keys()) + ["recovered", "active"]:
@@ -469,13 +466,19 @@ class Covid19Processing:
                 new_deaths = simulation.deaths.diff()[i]
                 new_deaths_by_case_duration = (new_deaths * daily_death_distribution)
 
+                # insert new cases for the day
                 case_history[0] = new_cases
-                case_history[1:] = simulation.iloc[i - 1, -history_length:-1]
 
+                # shift previous cases
+                case_history[1:] = simulation.iloc[i - 1, -history_length:-1]
                 case_history = case_history[:history_length]
+
+                # subtract deaths
                 case_history -= new_deaths_by_case_duration
+
+                # counteract difference between theoretical mortality distribution and reality
                 case_history = np.maximum(0, case_history)
-                new_recovered = simulation.recovered.iloc[i - 1] + case_history[-1]
+                new_recovered = simulation.recovered.iloc[i - 1] + max(0, case_history[-1])
 
             for h in range(history_length):
                 simulation.at[day.to_datetime64(), f"active_{h}"] = case_history[h]
