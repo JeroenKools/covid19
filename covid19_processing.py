@@ -271,7 +271,13 @@ class Covid19Processing:
             if use_log_scale:
                 by_country[by_country == 0] = np.nan
         else:
-            print(f"{y_metric}' is an invalid y_metric!")
+            print(f"'{y_metric}' is an invalid y_metric!")
+
+        if len(by_country) >= 60:
+            n = len(by_country) // 60
+            mark_every = slice(-1, 0, -n)
+        else:
+            mark_every = None
 
         for i, country in enumerate(countries_to_plot):
             if country in by_country.index:
@@ -308,7 +314,7 @@ class Covid19Processing:
                     length = len(country_data)
                 x_data = list(range(len(country_data)))
 
-            plt.plot(x_data, country_data, marker=markers[i % m], label=country,
+            plt.plot(x_data, country_data, marker=markers[i % m], label=country, markevery=mark_every,
                      markersize=6, color=color, alpha=0.8, fillstyle=marker_fill)
 
             if country_data.max() is not np.nan:
