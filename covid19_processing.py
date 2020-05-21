@@ -180,9 +180,12 @@ class Covid19Processing:
             return pd.concat([self.dataframes[metric + "_by_country"], self.dataframes[metric + "_by_continent"]])
         elif metric.startswith("new") and metric.split(" ")[1] in self.dataframes:
             metric = metric.split(" ")[1]
-            return pd.concat([self.dataframes[metric + "_by_country"].diff(axis="columns"),
-                              self.dataframes[metric + "_by_continent"].diff(axis="columns")]
-                             )
+            combined = pd.concat(
+                [self.dataframes[metric + "_by_country"].diff(axis="columns"),
+                 self.dataframes[metric + "_by_continent"].diff(axis="columns")]
+            )
+            combined[combined < 1] = np.nan
+            return combined
         elif metric in self.country_metadata["China"]:
             all_regions = self.dataframes["confirmed_by_country"].index.tolist() +\
                            self.dataframes["confirmed_by_continent"].index.tolist()
@@ -273,8 +276,8 @@ class Covid19Processing:
         else:
             print(f"'{y_metric}' is an invalid y_metric!")
 
-        if len(by_country) >= 60:
-            n = len(by_country) // 60
+        if len(by_country) >= 20:
+            n = len(by_country) // 20
             mark_every = slice(-1, 0, -n)
         else:
             mark_every = None
@@ -315,7 +318,7 @@ class Covid19Processing:
                 x_data = list(range(len(country_data)))
 
             plt.plot(x_data, country_data, marker=markers[i % m], label=country, markevery=mark_every,
-                     markersize=6, color=color, alpha=0.8, fillstyle=marker_fill)
+                     markersize=7, color=color, alpha=0.8, fillstyle=marker_fill)
 
             if country_data.max() is not np.nan:
                 mx = country_data.max()
