@@ -512,20 +512,20 @@ class Covid19Processing:
             history_length=28,       # Length of case history
             sigma_death_days=6,      # Standard deviation in mortality over time distribution
             r0=2.5,
-            mitigation_trend=(1.0, 0.5), # Mitigation factor development over time. This will be linearly
-                                         # interpolated to a vector of length {days},
+            mitigation=1.0,    # Maximum mitigation factor. This will be linearly interpolated to trend vector
             from_day=-1
     ):
         population = self.country_metadata[country]["population"]
         country_history = self.simulate_country_history(country, history_length)
+        today = country_history.index[-1]
         if from_day != -1:
+            days = (today - country_history.index[from_day]).days
             country_history = country_history[country_history.confirmed > 0]
             country_history = country_history.iloc[:from_day+1, :]
         available_icu_beds = int(population/100000 * icu_beds_per_100k * icu_availability)
 
-        daily_mitigation = np.interp(np.linspace(0, 1, days),
-                                     np.linspace(0, 1, len(mitigation_trend)),
-                                     mitigation_trend)
+        # effective mitigation ramps up to given mitigation factor over 14 days
+        daily_mitigation = np.append(np.linspace(1, mitigation, 14), max(0, days-14) * [mitigation])
 
         daily_death_chance = death_chance_per_day(cfr, 1.75, 0.5, sigma_death_days, history_length, do_plot=False)
         #  daily_death_chance_no_icu = death_chance_per_day(cfr_without_icu, 1.75, 0.5,
@@ -535,7 +535,6 @@ class Covid19Processing:
         # https://www.medrxiv.org/content/10.1101/2020.03.05.20030502v1.full.pdf
         daily_transmission_chance = scipy.stats.norm.pdf(np.linspace(0, history_length, history_length+1),
                                                          loc=4.5, scale=1.6)
-        today = country_history.index[-1]
 
         for d in range(days):
             # column shortcuts
@@ -599,7 +598,7 @@ class Covid19Processing:
                         history_length=30, use_log_scale=True, scenario_name="", from_day=-1):
 
         simulation, today = self.simulate_country(country=country, days=days, cfr=cfr,
-                                                  mitigation_trend=mitigation_trend,
+                                                  mitigation=mitigation_trend,
                                                   r0=r0,
                                                   history_length=history_length,
                                                   from_day=from_day)
