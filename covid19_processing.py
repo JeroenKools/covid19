@@ -400,7 +400,7 @@ class Covid19Processing:
     def curve_fit(self, country="All except China", days=100, do_plot=True):
         country_data = self.get_metric_data("confirmed").loc[country, :]
         country_data = country_data[np.isfinite(country_data)]
-        x = np.arange(days + len(country_data))
+        x = np.arange(len(country_data), days + len(country_data))
         current_day = country_data.index[-1]
         if country in self.country_metadata:
             population = self.country_metadata[country]["population"]
@@ -409,13 +409,13 @@ class Covid19Processing:
 
         [L, k, x0], pcov = scipy.optimize.curve_fit(logistic_func, np.arange(len(country_data)),
                                                     country_data, maxfev=10000,
-                                                    p0=[country_data[-1], 0.5, np.clip(len(country_data), 1, 200)],
-                                                    bounds=([1, 0.001, 1], [population, 0.999, 600]),
+                                                    p0=[country_data[-1], 0.5, np.clip(len(country_data), 1, 365)],
+                                                    bounds=([0, 0, 0], [population, 1, 800]),
                                                     method="trf"
                                                     )
 
-        # dates up to 100 days after start
-        model_date_list = [country_data.index[0] + datetime.timedelta(days=n) for n in range(0, days + len(country_data))]
+        # dates up to 'days' days after present
+        model_date_list = [country_data.index[-1] + datetime.timedelta(days=n) for n in range(days)]
         model_date_list = [mdates.date2num(x) for x in model_date_list]
 
         n = len(model_date_list)
@@ -423,7 +423,7 @@ class Covid19Processing:
 
         if do_plot:
             plt.plot(country_data, label="Confirmed cases in " + country, markersize=3, zorder=1)
-            plt.plot(model_date_list[-days+1:], np.round(logistic)[-days+1:],
+            plt.plot(model_date_list, np.round(logistic),
                      label=f"{L:.0f} / (1 + e^(-{k:.3f} * (x - {x0:.1f})))", zorder=1)
 
             plt.legend(loc="lower right")
@@ -512,7 +512,8 @@ class Covid19Processing:
             history_length=28,       # Length of case history
             sigma_death_days=6,      # Standard deviation in mortality over time distribution
             r0=2.5,
-            mitigation=1.0,    # Maximum mitigation factor. This will be linearly interpolated to trend vector
+            mitigation_start=1.0,    # Initial mitigation factor
+            mitigation_end=1.0,      # Final mitigation factor. This will be linearly interpolated to a trend vector
             from_day=-1
     ):
         population = self.country_metadata[country]["population"]
@@ -525,7 +526,7 @@ class Covid19Processing:
         available_icu_beds = int(population/100000 * icu_beds_per_100k * icu_availability)
 
         # effective mitigation ramps up to given mitigation factor over 14 days
-        daily_mitigation = np.append(np.linspace(1, mitigation, 14), max(0, days-14) * [mitigation])
+        daily_mitigation = np.append(np.linspace(mitigation_start, mitigation_end, 14), max(0, days - 14) * [mitigation_end])
 
         daily_death_chance = death_chance_per_day(cfr, 1.75, 0.5, sigma_death_days, history_length, do_plot=False)
         #  daily_death_chance_no_icu = death_chance_per_day(cfr_without_icu, 1.75, 0.5,
@@ -598,7 +599,8 @@ class Covid19Processing:
                         history_length=30, use_log_scale=True, scenario_name="", from_day=-1):
 
         simulation, today = self.simulate_country(country=country, days=days, cfr=cfr,
-                                                  mitigation=mitigation_trend,
+                                                  mitigation_start=mitigation_trend[0],
+                                                  mitigation_end=mitigation_trend[1],
                                                   r0=r0,
                                                   history_length=history_length,
                                                   from_day=from_day)

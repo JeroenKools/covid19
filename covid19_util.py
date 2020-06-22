@@ -153,8 +153,9 @@ def logistic_func(x, L, k, x0):
     try:
         out = L / (1 + np.exp(-k * (x - x0)))
         return out
-    except RuntimeWarning:
+    except RuntimeWarning as e:
         # Ignore these warnings, they will only happen when the curve fit parameters are out of bounds
+        print(e)
         return x
 
 
