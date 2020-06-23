@@ -9,6 +9,8 @@ import scipy.stats
 from io import StringIO
 import datetime
 import geonamescache
+import ipywidgets
+from ipywidgets import interact, SelectMultiple
 
 
 class Covid19Processing:
