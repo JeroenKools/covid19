@@ -10,7 +10,8 @@ from io import StringIO
 import datetime
 import geonamescache
 import ipywidgets
-from ipywidgets import interact, SelectMultiple
+from ipywidgets import interact, SelectMultiple, fixed
+from multi_checkbox_widget import multi_checkbox_widget
 
 
 class Covid19Processing:
@@ -26,6 +27,8 @@ class Covid19Processing:
             "Republic of the Congo": "Congo (Brazzaville)",
             "Cabo Verde": "Cape Verde"
         }
+        self.countries_to_plot = ["Brazil", "China", "Japan", "South Korea", "United States",
+                                  "India", "Italy", "Germany", "Russia", "Netherlands", "Spain", "World"]
 
         for country_code in gc_data:
             metadata = gc_data[country_code]
@@ -225,11 +228,37 @@ class Covid19Processing:
         df.filtered_growth_factor = scipy.ndimage.median_filter(df.filtered_growth_factor, median_n, mode="nearest")
         return df
 
+    def set_default_countries(self, countries):
+        self.countries_to_plot = countries
+
+    def plot_interactive(self,
+                         x_metric=["calendar_date", "day_number"],
+                         y_metric=["confirmed", "deaths", "active", "new confirmed", "new deaths"],
+                         min_cases=(0, 1000, 50)
+                         ):
+
+        options_dict = {
+            x: ipywidgets.Checkbox(
+                description=x,
+                value=x in self.countries_to_plot,
+                style={"description_width": "0px", "overflow": "hidden"}
+            ) for x in self.get_metric_data("confirmed").index
+        }
+
+        def plot_selected(**args):
+            selected = [widget.description for widget in ui.children[1].children if widget.value]
+            if selected:
+                self.plot(x_metric, y_metric, selected, fixed_country_colors=True, min_cases=min_cases)
+
+        ui = multi_checkbox_widget(options_dict)
+        out = ipywidgets.interactive_output(plot_selected, options_dict)
+        display(ipywidgets.HBox([ui, out]))
+
     def plot(self, x_metric, y_metric, countries_to_plot, colormap=cm, use_log_scale=True,
-             min_cases=0, sigma=5, fixed_country_colors=False):
+             min_cases=1, sigma=5, fixed_country_colors=False):
 
         # layout/style stuff
-        markers = ["o", "^", "v", "<", ">", "s", "X", "D", "*", "$Y$", "$Z$"]
+        markers = ["o", "^", "v", "<", ">", "s", "X", "D", "*", "$Y$", "$Z$", "$@$", "$&$"]
         short_metric_to_long = {
             "confirmed": "Confirmed cases",
             "deaths": "Deaths",
@@ -320,7 +349,7 @@ class Covid19Processing:
                 x_data = list(range(len(country_data)))
 
             plt.plot(x_data, country_data, marker=markers[i % m], label=country, markevery=mark_every,
-                     markersize=7, color=color, alpha=0.8, fillstyle=marker_fill)
+                     markersize=8, color=color, alpha=0.8, fillstyle=marker_fill)
 
             if country_data.max() is not np.nan:
                 mx = country_data.max()

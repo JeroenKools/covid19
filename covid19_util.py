@@ -171,10 +171,13 @@ def string_to_color(name, offset=4):
         "Netherlands": (1.0, 0.4, 0.0),
         "Germany": (0, 0.5, 0.7),
         "Italy": (0.2, 0.6, 0.1),
+        "India": (0.1, 0.45, 0.25),
         "United States": (0.0, 0.7, 1.0),
         "United Kingdom": (0.6, 0.0, 0.3),
-        "Spain": (0.9, 1, 0.0),
-        "All except China": (0.2, 0.2, 0.2)
+        "Russia": (0.6, 0.4, 0.0),
+        "Spain": (0.8, 1, 0.0),
+        "All except China": (0.2, 0.2, 0.2),
+        "World": (0, 0, 0)
     }
 
     if name in fixed_colors:
