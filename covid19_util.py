@@ -150,7 +150,6 @@ def death_chance_per_day(cfr, s=0.9, mu=0, sigma=1, length=20, do_plot=False):
 
 
 def logistic_func(x, L, k, x0):
-    import warnings
     warnings.filterwarnings("error")
     try:
         out = L / (1 + np.exp(-k * (x - x0)))
