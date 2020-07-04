@@ -1,6 +1,7 @@
 # Builtins
 import math
 import colorsys
+import warnings
 
 # Third party modules
 from pandas.plotting import register_matplotlib_converters
@@ -11,6 +12,7 @@ from IPython.display import display, Markdown
 import numpy as np
 import scipy.stats
 
+warnings.filterwarnings('ignore')                     # ignore a deprecation warning in IPython Widgets
 register_matplotlib_converters()                      # For formatting pandas dates
 light_grey = (.95, .95, .95, 1)                       # Plot background color
 matplotlib.rcParams['figure.figsize'] = (14, 8)       # Default size of all figures

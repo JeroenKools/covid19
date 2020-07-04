@@ -181,6 +181,9 @@ class Covid19Processing:
             print(f"{k:20}", end=" " if (i + 1) % columns else "\n")  # Every 5 items, end with a newline
 
     def get_metric_data(self, metric):
+        metric = metric.replace("cases", "confirmed")
+        metric = metric.replace("million", "population")
+
         if metric+"_by_country" in self.dataframes:
             return pd.concat([self.dataframes[metric + "_by_country"], self.dataframes[metric + "_by_continent"]])
         elif metric.startswith("new") and metric.split(" ")[1] in self.dataframes:
@@ -234,7 +237,8 @@ class Covid19Processing:
     def plot_interactive(self,
                          x_metric=["calendar_date", "day_number"],
                          y_metric=["confirmed", "deaths", "active", "new confirmed", "new deaths"],
-                         min_cases=(0, 1000, 50)
+                         min_cases=(0, 1000, 50),
+                         use_log_scale=True
                          ):
 
         options_dict = {
@@ -248,13 +252,14 @@ class Covid19Processing:
         def plot_selected(**args):
             selected = [widget.description for widget in ui.children[1].children if widget.value]
             if selected:
-                self.plot(x_metric, y_metric, selected, fixed_country_colors=True, min_cases=min_cases)
+                self.plot(x_metric, y_metric, selected, fixed_country_colors=True,
+                          min_cases=min_cases, use_log_scale=use_log_scale)
 
         ui = multi_checkbox_widget(options_dict)
         out = ipywidgets.interactive_output(plot_selected, options_dict)
         display(ipywidgets.HBox([ui, out]))
 
-    def plot(self, x_metric, y_metric, countries_to_plot, colormap=cm, use_log_scale=True,
+    def plot(self, x_metric, y_metric, countries_to_plot=None, colormap=cm, use_log_scale=True,
              min_cases=1, sigma=5, fixed_country_colors=False):
 
         # layout/style stuff
@@ -271,6 +276,8 @@ class Covid19Processing:
             "deaths/population": "Deaths per million population"
         }
         fills = ["none", "full"]  # alternate between filled and empty markers
+        if countries_to_plot is None:
+            countries_to_plot = self.countries_to_plot
         length = None
         m = len(markers)
         cm = plt.cm.get_cmap(colormap)
