@@ -446,9 +446,9 @@ class Covid19Processing:
             population = 1e8
 
         [L, k, x0], pcov = scipy.optimize.curve_fit(logistic_func, np.arange(len(country_data)),
-                                                    country_data, maxfev=10000,
+                                                    country_data, max_nfev=10000,
                                                     p0=[country_data[-1], 0.5, np.clip(len(country_data), 1, 365)],
-                                                    bounds=([0, 0, 0], [population, 1, 800]),
+                                                    bounds=([country_data[-1], 0, 0], [population, 1, 800]),
                                                     method="trf"
                                                     )
 
