@@ -260,7 +260,7 @@ class Covid19Processing:
         display(ipywidgets.HBox([ui, out]))
 
     def plot(self, x_metric, y_metric, countries_to_plot=None, colormap=cm, use_log_scale=True,
-             min_cases=1, sigma=5, fixed_country_colors=False):
+             min_cases=1, sigma=5, fixed_country_colors=True):
 
         # layout/style stuff
         markers = ["o", "^", "v", "<", ">", "s", "X", "D", "*", "$Y$", "$Z$", "$@$", "$&$"]
@@ -271,9 +271,10 @@ class Covid19Processing:
             "growth_factor": f"{sigma}-day avg growth factor",
             "deaths/confirmed": "Case fatality",
             "new confirmed": "Daily new cases",
-            "confirmed/population": "Confirmed cases per million population",
-            "active/population": "Active cases per million population",
-            "deaths/population": "Deaths per million population"
+            "confirmed/population": "Confirmed cases per 10k population",
+            "active/population": "Active cases per 10k population",
+            "deaths/population": "Deaths per 10k population",
+            "new confirmed/population": "Daily new cases per 10k population",
         }
         fills = ["none", "full"]  # alternate between filled and empty markers
         if countries_to_plot is None:
@@ -307,7 +308,7 @@ class Covid19Processing:
 
             by_country = numerator.divide(denominator, 0)  # numerator / denominator
             if ratio_parts[1] == "population":
-                by_country *= 1e6
+                by_country *= 1e4
 
             if use_log_scale:
                 by_country[by_country == 0] = np.nan
@@ -376,11 +377,11 @@ class Covid19Processing:
             if not ratio_parts[-1] == "population":
                 plt.ylim(0.9 * use_log_scale,
                          by_country.loc[countries_to_plot].max().max() * (2 - 0.9 * (not use_log_scale)))
-            firstweekday = pd.Timestamp(by_country.iloc[0].index[0]).dayofweek
             n_days = (country_data.index.max() - country_data.index.min()).days + 1
-            n_weeks = n_days//5
-            plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%m/%d/%Y'))
-            plt.gca().xaxis.set_major_locator(mdates.WeekdayLocator(interval=n_weeks//7, byweekday=firstweekday))
+            n_months = n_days//30
+            month_interval = 1 + n_months//10
+            plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%m/%Y'))
+            plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=month_interval, bymonthday=1))
         elif x_metric == "day_number":
             if y_metric != "growth_factor" and len(ratio_parts) < 2:
                 floor = 10 ** math.floor(math.log(min_cases) / math.log(10))
@@ -396,7 +397,7 @@ class Covid19Processing:
                 title = f"COVID-19 {long_y_metric} ratio in selected countries"
             plt.title(title, fontsize=18)
 
-        plt.legend(frameon=False)
+        plt.legend(frameon=False, fontsize=11)
         if y_metric == "growth_factor":
             plt.gca().get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(lambda x, p: f"{x:,.2f}"))
         elif ratio_parts[-1] == "population":
@@ -687,6 +688,6 @@ class Covid19Processing:
 
         plt.title(f"{country} daily changes as of {country_data.index[-1].date()}", fontsize=20)
         set_plot_style()
-        plt.legend(loc="upper left")
+        plt.legend(loc="upper left", fontsize=11)
         set_y_axis_format(country_data[metrics].max().max(), log=True)
         plt.show()

@@ -176,7 +176,7 @@ def string_to_color(name, offset=4):
         "United States": (0.0, 0.7, 1.0),
         "United Kingdom": (0.6, 0.0, 0.3),
         "Russia": (0.6, 0.4, 0.0),
-        "Spain": (0.8, 1, 0.0),
+        "Spain": (0.92, 0.92, 0.0),
         "All except China": (0.2, 0.2, 0.2),
         "World": (0, 0, 0)
     }
