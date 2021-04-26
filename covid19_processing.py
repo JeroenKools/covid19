@@ -238,7 +238,8 @@ class Covid19Processing:
                          x_metric=["calendar_date", "day_number"],
                          y_metric=["confirmed", "deaths", "active", "new confirmed", "new deaths"],
                          min_cases=(0, 1000, 50),
-                         use_log_scale=True
+                         use_log_scale=True,
+                         smoothing_days=1
                          ):
 
         options_dict = {
@@ -253,7 +254,7 @@ class Covid19Processing:
             selected = [widget.description for widget in ui.children[1].children if widget.value]
             if selected:
                 self.plot(x_metric, y_metric, selected, fixed_country_colors=True,
-                          min_cases=min_cases, use_log_scale=use_log_scale)
+                          min_cases=min_cases, use_log_scale=use_log_scale, sigma=smoothing_days)
 
         ui = multi_checkbox_widget(options_dict)
         out = ipywidgets.interactive_output(plot_selected, options_dict)
@@ -355,6 +356,9 @@ class Covid19Processing:
                 if country == "Outside China":
                     length = len(country_data)
                 x_data = list(range(len(country_data)))
+
+            if sigma > 0:
+                country_data = country_data.rolling(sigma).mean()
 
             plt.plot(x_data, country_data, marker=markers[i % m], label=country, markevery=mark_every,
                      markersize=8, color=color, alpha=0.8, fillstyle=marker_fill)
