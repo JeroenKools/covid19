@@ -1,9 +1,10 @@
 # From https://gist.github.com/MattJBritton/9dc26109acb4dfe17820cf72d82f1e6f
 import ipywidgets as wid
 from IPython.display import display
+import traitlets
 
 
-def multi_checkbox_widget(options_dict):
+def multi_checkbox_widget(options_dict, parent):
     """ Widget with a search field and lots of checkboxes """
     search_widget = wid.Text(width="auto", layout=wid.Layout(flex="1 1 auto", width="auto", overflow='hidden'))
     output_widget = wid.Output()
@@ -37,6 +38,19 @@ def multi_checkbox_widget(options_dict):
             )  # [options_dict[x] for x in close_matches]
         options_widget.children = new_options
 
+    @output_widget.capture()
+    def on_selection_change(change):
+        country = change["owner"].description
+        val = change["new"]
+        if val:
+            parent.countries_to_plot = [x for x in parent.countries_to_plot] + [country]
+        else:
+            parent.countries_to_plot = [x for x in parent.countries_to_plot if x != country]
+        options_widget.children = sorted(options, key=lambda x: x.value, reverse=True)
+
+    on_text_change({"new": ""})
     search_widget.observe(on_text_change, names='value')
+    for o in options:
+        o.observe(on_selection_change, names="value")
     display(output_widget)
     return multi_select

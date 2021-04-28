@@ -2,6 +2,7 @@
 import math
 import colorsys
 import warnings
+import hashlib
 
 # Third party modules
 from pandas.plotting import register_matplotlib_converters
@@ -29,6 +30,8 @@ base_url = f"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/{branch}/
 data_urls = {
     "confirmed": "time_series_covid19_confirmed_global.csv",
     "deaths": "time_series_covid19_deaths_global.csv",
+    "confirmed_us_states": "time_series_covid19_confirmed_US.csv",
+    "deaths_us_states": "time_series_covid19_deaths_US.csv",
     # No longer being updated: "recovered": "time_series_19-covid-Recovered.csv"
 }
 
@@ -40,6 +43,14 @@ continent_codes = {
     "NA": "North America",
     "OC": "Oceania",
     "SA": "South America"
+}
+
+normalized_names = {
+            "Timor Leste": "East Timor",
+            "Vatican": "Vatican City",
+            "Democratic Republic of the Congo": "Congo (Kinshasa)",
+            "Republic of the Congo": "Congo (Brazzaville)",
+            "Cabo Verde": "Cape Verde"
 }
 
 
@@ -171,8 +182,9 @@ def string_to_color(name, offset=4):
     fixed_colors = {
         "Netherlands": (1.0, 0.4, 0.0),
         "Germany": (0, 0.5, 0.7),
-        "Italy": (0.2, 0.6, 0.1),
+        "Italy": (0.2, 0.75, 0.1),
         "India": (0.1, 0.45, 0.25),
+        "Mongolia": (0, 0.4, 0.7),
         "United States": (0.0, 0.7, 1.0),
         "United Kingdom": (0.6, 0.0, 0.3),
         "Russia": (0.6, 0.4, 0.0),
@@ -186,18 +198,17 @@ def string_to_color(name, offset=4):
 
     else:
         hue = 0
-        sat = 0.7
-        val = 0.85
+        sat = 0.5
+        val = 0.5
 
-        for char in " ().-":
-            name = name.lower().replace(char, "")
-        h = sum([(ord(x) - 97) for x in name]) / 37 % 1
-        s = (ord(name[3]) - 97) / 25
-        v = (ord(name[2]) - 97) / 25
+        name_hash = int(hashlib.md5(name[::3].encode()).hexdigest(), 16)
+        h = name_hash % 256 / 256
+        s = (name_hash << 8) % 256 / 256
+        v = (name_hash << 16) % 256 / 256
 
         c = colorsys.hsv_to_rgb(hue + h,
-                                sat + 0.3 * s,
-                                val + 0.15 * v)
+                                sat + 0.5 * s,
+                                val + 0.5 * v)
         return c
 
 
