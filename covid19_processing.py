@@ -74,10 +74,10 @@ class Covid19Processing:
 
             if is_country:
                 by_country = self.dataframes[metric].groupby("Country/Region").sum()  # Group by country
-                dates = by_country.columns[2:]  # Drop Lat/Long
+                dates = by_country.columns[2:]   # Drop Lat/Long
             else:
                 by_country = self.dataframes[metric].groupby("Province_State").sum()
-                dates = by_country.columns[11:] # Skip various clutter columns
+                dates = by_country.columns[11:]  # Skip various clutter columns
                 metric = metric.split("_", 1)[0]
 
             # Convert to columns to matplotlib dates
@@ -93,14 +93,14 @@ class Covid19Processing:
                     "1/20/20": 218
                 }
 
-                # Retain chronological column order
-                by_country = by_country.reindex(list(sorted(by_country.columns)), axis=1)
-                by_country = by_country.fillna(0)
-
                 if is_country:
                     # Insert data points
                     for d, n in early_china_data.items():
                         by_country.loc["China", pd.to_datetime(d)] = n
+
+                    # Retain chronological column order
+                    by_country = by_country.reindex(list(sorted(by_country.columns)), axis=1)
+                    by_country = by_country.fillna(0)
 
                     # Correct an odd blip in the Japanese data.
                     # From 2/5 to 2/7, the Johns Hopkins data for Japan goes 22, 45, 25.
@@ -345,7 +345,7 @@ class Covid19Processing:
             if ratio_parts[1] != "population":
                 numerator = numerator[denominator > min_cases]
                 denominator = denominator[denominator > min_cases]
-    
+
             if 0 in denominator:
                 print("Denominator is zero for some countries!")
                 display(denominator[denominator == 0])
@@ -539,7 +539,7 @@ class Covid19Processing:
         if country in self.country_metadata:
             population = self.country_metadata[country]["population"]
         else:
-            print("Couldn't find population for", country)
+            # print("Couldn't find population for", country)
             population = np.nan
         try:
             confirmed = self.dataframes["confirmed_by_country"].loc[country]
@@ -558,6 +558,7 @@ class Covid19Processing:
         # reconstruct recovered and active case durations using fatality by case duration stats
         for i, day in enumerate(confirmed.index):
             case_history = np.zeros(history_length)
+            # print(i, day)
             if i == 0:
                 new_recovered = 0
             else:
@@ -604,6 +605,7 @@ class Covid19Processing:
             r0=2.5,
             mitigation_start=1.0,    # Initial mitigation factor
             mitigation_end=1.0,      # Final mitigation factor. This will be linearly interpolated to a trend vector
+            mitigation_ramp_days=14, # Days for the mitigation factor to reach its final value
             from_day=-1
     ):
         population = self.country_metadata[country]["population"]
@@ -615,9 +617,9 @@ class Covid19Processing:
             country_history = country_history.iloc[:from_day+1, :]
         available_icu_beds = int(population/100000 * icu_beds_per_100k * icu_availability)
 
-        # effective mitigation ramps up to given mitigation factor over 90 days
-        daily_mitigation = np.append(np.linspace(mitigation_start, mitigation_end, 90),
-                                     max(0, days - 90) * [mitigation_end])
+        # effective mitigation ramps up to given mitigation factor over mitigation_ramp_days days
+        daily_mitigation = np.append(np.linspace(mitigation_start, mitigation_end, mitigation_ramp_days),
+                                     max(0, days - mitigation_ramp_days) * [mitigation_end])
 
         daily_death_chance = death_chance_per_day(cfr, 1.75, 0.5, sigma_death_days, history_length, do_plot=False)
         #  daily_death_chance_no_icu = death_chance_per_day(cfr_without_icu, 1.75, 0.5,
@@ -692,6 +694,7 @@ class Covid19Processing:
         simulation, today = self.simulate_country(country=country, days=days, cfr=cfr,
                                                   mitigation_start=mitigation_trend[0],
                                                   mitigation_end=mitigation_trend[1],
+                                                  mitigation_ramp_days=90,
                                                   r0=r0,
                                                   history_length=history_length,
                                                   from_day=from_day)

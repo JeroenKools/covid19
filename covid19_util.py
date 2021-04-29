@@ -202,9 +202,10 @@ def string_to_color(name, offset=4):
         val = 0.5
 
         name_hash = int(hashlib.md5(name[::3].encode()).hexdigest(), 16)
-        h = name_hash % 256 / 256
-        s = (name_hash << 8) % 256 / 256
-        v = (name_hash << 16) % 256 / 256
+        b16 = 1 << 16
+        h = (name_hash % b16) / b16
+        s = (name_hash % 256) / 256
+        v = (name_hash % (1 << 24)) / (1 << 24)
 
         c = colorsys.hsv_to_rgb(hue + h,
                                 sat + 0.5 * s,
