@@ -47,10 +47,29 @@ continent_codes = {
 
 normalized_names = {
             "Timor Leste": "East Timor",
+            "Timor-Leste": "East Timor",
             "Vatican": "Vatican City",
             "Democratic Republic of the Congo": "Congo (Kinshasa)",
             "Republic of the Congo": "Congo (Brazzaville)",
-            "Cabo Verde": "Cape Verde"
+            "Cabo Verde": "Cape Verde",
+            "Palestinian Territory": "Palestine",
+            "Republic of Korea": "South Korea",
+            "Holy See": "Vatican City",
+            "Iran (Islamic Republic of)": "Iran",
+            "Viet Nam": "Vietnam",
+            "Taipei and environs": "Taiwan",
+            "Republic of Moldova": "Moldova",
+            "Russian Federaration": "Russia",
+            "Korea, South": "South Korea",
+            "Taiwan*": "Taiwan",
+            "occupied Palestinian territory": "Palestine",
+            "West Bank and Gaza": "Palestine",
+            "Bahamas, The": "Bahamas",
+            "Cote d'Ivoire": "Ivory Coast",
+            "Gambia, The": "Gambia",
+            "US": "United States",
+            "Cabo Verde": "Cape Verde",
+            "Burma": "Myanmar",
 }
 
 

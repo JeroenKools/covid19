@@ -12,6 +12,7 @@ import geonamescache
 import ipywidgets
 from ipywidgets import interact, SelectMultiple, fixed
 from multi_checkbox_widget import multi_checkbox_widget
+import time
 
 
 class Covid19Processing:
@@ -112,24 +113,7 @@ class Covid19Processing:
                         by_country.loc["US", pd.to_datetime("4/13/20")] -= 102000
 
             # Change some weird country names to more commonly used ones
-            by_country = by_country.rename(index={"Republic of Korea": "South Korea",
-                                                  "Holy See": "Vatican City",
-                                                  "Iran (Islamic Republic of)": "Iran",
-                                                  "Viet Nam": "Vietnam",
-                                                  "Taipei and environs": "Taiwan",
-                                                  "Republic of Moldova": "Moldova",
-                                                  "Russian Federaration": "Russia",
-                                                  "Korea, South": "South Korea",
-                                                  "Taiwan*": "Taiwan",
-                                                  "occupied Palestinian territory": "Palestine",
-                                                  "West Bank and Gaza": "Palestine",
-                                                  "Bahamas, The": "Bahamas",
-                                                  "Cote d'Ivoire": "Ivory Coast",
-                                                  "Gambia, The": "Gambia",
-                                                  "US": "United States",
-                                                  "Cabo Verde": "Cape Verde",
-                                                  "Burma": "Myanmar",
-                                                  })
+            by_country = by_country.rename(index=normalized_names)
             if not is_country:
                 by_country.index = [x+", US"for x in by_country.index]
 
@@ -138,23 +122,27 @@ class Covid19Processing:
             # Store processed results for metric
             self.dataframes[metric + by] = by_country.fillna(0).astype(int)
 
+        all_countries = self.dataframes["confirmed_by_country"].index
+
         # Add in recovered and active
         for by in ["_by_country", "_by_state"]:
             if is_country:
                 print("Simulating active and recovered cases...")
-            self.dataframes["recovered"+by] = pd.DataFrame(columns=self.dataframes["confirmed"+by].columns)
-            self.dataframes["active"+by] = pd.DataFrame(columns=self.dataframes["confirmed"+by].columns)
-            for country in self.dataframes["confirmed"+by].index:
-                simulation = self.simulate_country_history(country, history_length=40)
-                self.dataframes["recovered"+by].loc[country, :] = simulation.recovered
-                self.dataframes["active"+by].loc[country, :] = simulation.active
+            for x in ["recovered", "active"]:
+                self.dataframes[x + by] = pd.DataFrame(columns=self.dataframes["confirmed"+by].columns)
+                self.dataframes[x + by].loc[:, :] = np.nan
+            for country in self.dataframes["confirmed" + by].index:
+                # lazy loading
+                if country in self.countries_to_plot:
+                    self.compute_active_recovered_for(country)
 
         # Add in continents
-        for metric in list(data_urls.keys()) + ["recovered", "active"]:
-            if "states" in metric: continue
+        for metric in list(data_urls.keys()):
+            if "states" in metric:
+                continue
             continent_data = {}
             by_country = self.dataframes[metric+"_by_country"]
-            for country in by_country.index:
+            for country in all_countries:
                 if country in self.country_metadata:
                     continent = self.country_metadata[country]["continent"]
                     if continent in continent_data:
@@ -170,15 +158,21 @@ class Covid19Processing:
                 by_continent.loc[continent, :] = continent_data[continent]
 
             # Add in special regions
-            all_countries = by_country.sum()
-            by_continent.loc["All except China", :] = all_countries - by_country.loc["China", dates]
-            by_continent.loc["World", :] = all_countries
+            world = by_country.sum()
+            by_continent.loc["All except China", :] = world - by_country.loc["China", dates]
+            by_continent.loc["World", :] = world
             by_continent = by_continent
             self.dataframes[metric + "_by_continent"] = by_continent.fillna(0).astype(int)
 
+        for continent in continent_data:
+            for x in ["recovered_by_continent", "active_by_continent"]:
+                self.dataframes[x] = pd.DataFrame(columns=self.dataframes["confirmed_by_continent"].columns)
+                self.dataframes[x].loc[:, :] = np.nan
+            self.compute_active_recovered_for(continent)
+
         # Add population for special regions and continents
         continent_pop = {}
-        for country in by_country.index:
+        for country in all_countries:
             if country in self.country_metadata:
                 continent = self.country_metadata[country]["continent"]
                 pop = self.country_metadata[country]["population"]
@@ -186,6 +180,8 @@ class Covid19Processing:
                     continent_pop[continent] += pop
                 else:
                     continent_pop[continent] = pop
+            else:
+                print(f"Country {country} not in country metadata")
         continent_pop["World"] = sum(continent_pop.values())
         continent_pop["All except China"] = continent_pop["World"] - self.country_metadata["China"]["population"]
         for c in continent_pop:
@@ -213,9 +209,12 @@ class Covid19Processing:
         metric = metric.replace("million", "population")
 
         if metric + "_by_country" in self.dataframes:
-            return pd.concat([self.dataframes[metric + "_by_country"],
-                              self.dataframes[metric + "_by_continent"],
-                              self.dataframes[metric + "_by_state"]])
+            df = self.dataframes[metric + "_by_country"]
+            if (metric + "_by_state") in self.dataframes:
+                df = pd.concat([df, self.dataframes[metric + "_by_state"]])
+            if (metric + "_by_continent") in self.dataframes:
+                df = pd.concat([df, self.dataframes[metric + "_by_continent"]])
+            return df
         elif metric.startswith("new") and metric.split(" ")[1] in self.dataframes:
             return self.get_metric_data(metric.replace("new", "1-day"))
         elif metric.startswith("recent") and metric.split(" ")[1] in self.dataframes:
@@ -251,6 +250,17 @@ class Covid19Processing:
             series.name = metric
             data[metric] = series
         return pd.DataFrame(data)
+
+    def compute_active_recovered_for(self, country):
+        simulation = self.simulate_country_history(country, history_length=40)
+        if country.endswith(", US"):
+            by = "_by_state"
+        elif country in continent_codes.values():
+            by = "_by_continent"
+        else:
+            by = "_by_country"
+        self.dataframes["recovered" + by].loc[country, :] = simulation.recovered
+        self.dataframes["active" + by].loc[country, :] = simulation.active
 
     def get_new_cases_details(self, country, avg_n=5, median_n=3):
         confirmed = self.get_metric_data("confirmed").loc[country]
@@ -289,7 +299,10 @@ class Covid19Processing:
         }
 
         def plot_selected(**args):
-            selected = [widget.description for widget in ui.children[1].children if widget.value]
+            try:
+                selected = [widget.description for widget in ui.children[1].children if widget.value]
+            except TypeError as e:
+                print(e)
             if selected:
                 self.plot(x_metric, y_metric, selected, fixed_country_colors=True,
                           min_cases=min_cases, use_log_scale=use_log_scale, sigma=smoothing_days)
@@ -328,7 +341,16 @@ class Covid19Processing:
         y_max = 0
         ratio_parts = y_metric.split("/")
 
-        if self.get_metric_data(y_metric) is not None:
+        by_country = self.get_metric_data(y_metric)
+
+        if "active" in y_metric or "recovered" in y_metric:
+            active_countries = self.get_metric_data("active").index
+            for country in countries_to_plot:
+                if country not in active_countries:
+                    print(f"Processing {country}...")
+                    self.compute_active_recovered_for(country)
+
+        if by_country is not None:
             by_country = self.get_metric_data(y_metric)
         elif y_metric == "growth_factor":
             by_country = self.get_metric_data("confirmed")
@@ -341,7 +363,11 @@ class Covid19Processing:
                 and self.get_metric_data(ratio_parts[1]) is not None:
             numerator = self.get_metric_data(ratio_parts[0])
             denominator = self.get_metric_data(ratio_parts[1])
-            numerator = numerator.loc[denominator.index, :]
+            try:
+                numerator = numerator.loc[denominator.index, :]
+            except KeyError as e:
+                pass
+
             if ratio_parts[1] != "population":
                 numerator = numerator[denominator > min_cases]
                 denominator = denominator[denominator > min_cases]
@@ -358,9 +384,9 @@ class Covid19Processing:
         else:
             print(f"'{y_metric}' is an invalid y_metric!")
 
-        if len(by_country) >= 20:
-            n = len(by_country) // 20
-            mark_every = slice(-1, 0, -n)
+        if len(by_country.columns) >= 28:
+            n = len(by_country.columns) // 14
+            mark_every = slice(-14, 0, -n)
         else:
             mark_every = None
 
@@ -539,12 +565,14 @@ class Covid19Processing:
         if country in self.country_metadata:
             population = self.country_metadata[country]["population"]
         else:
-            # print("Couldn't find population for", country)
+            if country not in continent_codes.values():
+                print("Couldn't find population for", country)
             population = np.nan
         try:
-            confirmed = self.dataframes["confirmed_by_country"].loc[country]
-            deaths = self.dataframes["deaths_by_country"].loc[country]
+            confirmed = self.get_metric_data("confirmed").loc[country]
+            deaths = self.get_metric_data("deaths").loc[country]
         except KeyError:
+            print("Couldn't find", country)
             confirmed = self.dataframes["confirmed_by_state"].loc[country]
             deaths = self.dataframes["deaths_by_state"].loc[country]
         recovered = np.zeros(len(confirmed))
@@ -558,7 +586,7 @@ class Covid19Processing:
         # reconstruct recovered and active case durations using fatality by case duration stats
         for i, day in enumerate(confirmed.index):
             case_history = np.zeros(history_length)
-            # print(i, day)
+
             if i == 0:
                 new_recovered = 0
             else:
