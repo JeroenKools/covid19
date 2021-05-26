@@ -1,22 +1,22 @@
 from covid19_util import *
 
+import datetime
+import time
+
+import geonamescache
+from io import StringIO
+import ipywidgets
 from matplotlib import dates as mdates
 from matplotlib import colors as mcolors
 import pandas as pd
 import requests
 import scipy.optimize
 import scipy.stats
-from io import StringIO
-import datetime
-import geonamescache
-import ipywidgets
-from ipywidgets import interact, SelectMultiple, fixed
 from multi_checkbox_widget import multi_checkbox_widget
-import time
 
 
 class Covid19Processing:
-    def __init__(self):
+    def __init__(self, show_result=True):
         self.dataframes = {}
         gc = geonamescache.GeonamesCache()
         gc_data = list(gc.get_countries().values())
@@ -58,10 +58,11 @@ class Covid19Processing:
             r = requests.get(url)  # Retrieve from URL
             self.dataframes[metric] = pd.read_csv(StringIO(r.text), sep=",")  # Convert into Pandas dataframe
 
-        # Display the first lines
-        display(Markdown("### Raw confirmed cases data, per region/state"))
-        with pd.option_context("display.max_rows", 10, "display.max_columns", 14):
-            display(self.dataframes["confirmed"])
+        if show_result:
+            # Display the first lines
+            display(Markdown("### Raw confirmed cases data, per region/state"))
+            with pd.option_context("display.max_rows", 10, "display.max_columns", 14):
+                display(self.dataframes["confirmed"])
 
     def process(self, rows=20, debug=False):
         # Clean up
@@ -180,6 +181,8 @@ class Covid19Processing:
                     continent_pop[continent] += pop
                 else:
                     continent_pop[continent] = pop
+            elif country in ["Diamond Princess", "MS Zaandam"]:
+                pass
             else:
                 print(f"Country {country} not in country metadata")
         continent_pop["World"] = sum(continent_pop.values())
@@ -189,11 +192,12 @@ class Covid19Processing:
                 self.country_metadata[c] = {}
             self.country_metadata[c]["population"] = continent_pop[c]
 
-        with pd.option_context("display.max_rows", rows, "display.min_rows", rows, "display.max_columns", 10):
-            display(Markdown("### Table of confirmed cases by country"))
-            display(self.dataframes["confirmed_by_country"])
-            display(Markdown("### Table of confirmed cases by continent/region"))
-            display(self.dataframes["confirmed_by_continent"])
+        if rows > 0:
+            with pd.option_context("display.max_rows", rows, "display.min_rows", rows, "display.max_columns", 10):
+                display(Markdown("### Table of confirmed cases by country"))
+                display(self.dataframes["confirmed_by_country"])
+                display(Markdown("### Table of confirmed cases by continent/region"))
+                display(self.dataframes["confirmed_by_continent"])
 
     def list_countries(self, columns=5):
         confirmed_by_country = self.dataframes["confirmed_by_country"]
@@ -321,13 +325,18 @@ class Covid19Processing:
             "deaths": "Deaths",
             "active": "Active cases",
             "growth_factor": f"{sigma}-day avg growth factor",
-            "deaths/confirmed": "Case fatality",
+            "deaths/confirmed": "Case fatality rate",
             "new confirmed": "Daily new cases",
             "confirmed/population": "Confirmed cases per 10k population",
             "active/population": "Active cases per 10k population",
             "deaths/population": "Deaths per 10k population",
             "new confirmed/population": "Daily new cases per 10k population",
-            "new deaths/population" : "Daily new deaths per 10k population"
+            "new deaths/population": "Daily new deaths per 10k population",
+            "recent confirmed": "Recently confirmed cases",
+            "recent deaths": "Recent deaths",
+            "recent confirmed/population": "Recent cases per 10k population",
+            "recent deaths/population": "Recent deaths per 10k population",
+            "recent deaths/recent confirmed": "Recent case fatality rate"
         }
         fills = ["none", "full"]  # alternate between filled and empty markers
         if countries_to_plot is None:
