@@ -127,7 +127,7 @@ def set_y_axis_format(ymax, log=True):
 
     if log:
         plt.ylim(0.98, ceil)
-        plt.yscale("log", basey=10)
+        plt.yscale("log", base=10)
         plt.yticks([float(10 ** x) for x in range(0, power + 1)])
 
     plt.gca().get_yaxis().set_major_formatter(
@@ -208,6 +208,7 @@ def string_to_color(name, offset=4):
         "United Kingdom": (0.6, 0.0, 0.3),
         "Russia": (0.6, 0.4, 0.0),
         "Spain": (0.92, 0.92, 0.0),
+        "China": (0.7, 0.3, 0.3),
         "All except China": (0.2, 0.2, 0.2),
         "World": (0, 0, 0)
     }

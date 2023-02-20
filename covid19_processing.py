@@ -218,12 +218,12 @@ class Covid19Processing:
                 df = pd.concat([df, self.dataframes[metric + "_by_state"]])
             if (metric + "_by_continent") in self.dataframes:
                 df = pd.concat([df, self.dataframes[metric + "_by_continent"]])
-            return df
+            return df.drop_duplicates().squeeze()
         elif metric.startswith("new") and metric.split(" ")[1] in self.dataframes:
             return self.get_metric_data(metric.replace("new", "1-day"))
         elif metric.startswith("recent") and metric.split(" ")[1] in self.dataframes:
             return self.get_metric_data(metric.replace("recent", "30-day"))
-        elif "-day"in metric and metric.split(" ")[1] in self.dataframes:
+        elif "-day" in metric and metric.split(" ")[1] in self.dataframes:
             days = metric.split("-")[0]
             metric = metric.split(" ")[1]
             combined = pd.concat(
@@ -370,8 +370,8 @@ class Covid19Processing:
             by_country = by_country.dropna("columns").astype(int)
         elif len(ratio_parts) == 2 and self.get_metric_data(ratio_parts[0]) is not None\
                 and self.get_metric_data(ratio_parts[1]) is not None:
-            numerator = self.get_metric_data(ratio_parts[0])
-            denominator = self.get_metric_data(ratio_parts[1])
+            numerator = self.get_metric_data(ratio_parts[0]).drop_duplicates()
+            denominator = self.get_metric_data(ratio_parts[1]).drop_duplicates()
             try:
                 numerator = numerator.loc[denominator.index, :]
             except KeyError as e:
@@ -769,13 +769,15 @@ class Covid19Processing:
 
         return simulation
 
-    def country_highlight(self, country):
+    def country_highlight(self, country, sigma=7):
+        plt.figure(figsize=(13, 8))
         metrics = ["new_cases", "new_deaths"]
         country_data = self.get_new_cases_details(country).round(2)[metrics]
         display(country_data.tail(7).astype(int))
 
         for metric in metrics:
-            data = country_data[metric]
+            data = country_data[metric].rolling(sigma).mean()
+            print(metric, data.shape, type(data), country_data.index.shape, type(country_data.index))
             plt.plot(country_data.index, data, label=metric.capitalize().replace("_", " "))
 
         plt.title(f"{country} daily changes as of {country_data.index[-1].date()}", fontsize=20)
