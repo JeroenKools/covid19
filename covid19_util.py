@@ -60,6 +60,7 @@ normalized_names = {
             "Taipei and environs": "Taiwan",
             "Republic of Moldova": "Moldova",
             "Russian Federaration": "Russia",
+            "Korea, North": "North Korea",
             "Korea, South": "South Korea",
             "Taiwan*": "Taiwan",
             "occupied Palestinian territory": "Palestine",

@@ -181,7 +181,7 @@ class Covid19Processing:
                     continent_pop[continent] += pop
                 else:
                     continent_pop[continent] = pop
-            elif country in ["Diamond Princess", "MS Zaandam"]:
+            elif country in ["Diamond Princess", "MS Zaandam", "Winter Olympics 2022", "Summer Olympics 2020"]:
                 pass
             else:
                 print(f"Country {country} not in country metadata")
@@ -777,7 +777,6 @@ class Covid19Processing:
 
         for metric in metrics:
             data = country_data[metric].rolling(sigma).mean()
-            print(metric, data.shape, type(data), country_data.index.shape, type(country_data.index))
             plt.plot(country_data.index, data, label=metric.capitalize().replace("_", " "))
 
         plt.title(f"{country} daily changes as of {country_data.index[-1].date()}", fontsize=20)
